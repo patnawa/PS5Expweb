@@ -89,7 +89,7 @@ function cstage(name, detail) {
   } catch (e) {}
 }
 
-const BUILD = "2026-10-26c port9021-guard";
+const BUILD = "2026-10-26d memory-guard";
 
 async function run() {
   // Tell the cache handler a chain is live: a reload from here on would re-run
