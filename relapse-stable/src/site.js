@@ -89,8 +89,14 @@ function cstage(name, detail) {
   } catch (e) {}
 }
 
+const BUILD = "2026-10-26c port9021-guard";
+
 async function run() {
+  // Tell the cache handler a chain is live: a reload from here on would re-run
+  // the exploit against an already-patched kernel and panic the console.
+  window.__exploitRunning = true;
   cstage("site:run");
+  writeLog("Build: " + BUILD, "info");
   const rejection = window.firmware.rejection();
   if (rejection)
     throw new Error(rejection);
@@ -111,6 +117,10 @@ async function run() {
 
 run()
   .then(() => {
+    // The chain finished: a cache reload from here would re-arm a patched
+    // kernel, so mark the run complete and never auto-reload after this.
+    window.__exploitRunning = false;
+    window.__exploitDone = true;
     // Clean finish: clears the "open" marker so the next launch does not
     // report a crash that never happened.
     try {
@@ -118,6 +128,8 @@ run()
     } catch (e) {}
   })
   .catch((error) => {
+    window.__exploitRunning = false;
+    window.__exploitDone = true;
     const message = error instanceof Error ? error.message : String(error);
     // Si el mensaje ya se mostro antes (FAIL / STOP), no lo repetimos.
     if (!logBuffer.some((line) => line.includes(message))) {

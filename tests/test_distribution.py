@@ -69,7 +69,15 @@ class DistributionTests(unittest.TestCase):
             self.assertIn(b"connect: 0x062", exploit)
             self.assertIn(b"refusing to re-arm", exploit)
             self.assertIn(b"alreadyJailbroken", (relapse / "src/main.js").read_bytes())
-            self.assertIn(b"port9021-guard", (relapse / "cache.appcache").read_bytes())
+            # The cache handler must ship the safe-update logic, and the
+            # manifest must list both changed scripts so consoles fetch them.
+            handler = (relapse / "appcache_handler.js").read_bytes()
+            self.assertIn(b"__exploitRunning", handler)
+            self.assertIn(b"__exploitDone", handler)
+            self.assertIn(b"__exploitRunning", (relapse / "src/site.js").read_bytes())
+            manifest = (relapse / "cache.appcache").read_bytes()
+            self.assertIn(b"appcache_handler.js", manifest)
+            self.assertIn(b"src/site.js", manifest)
 
 
 if __name__ == "__main__":
