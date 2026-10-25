@@ -27,6 +27,12 @@ function renderBuffer() {
 function writeLog(message, type = "log", replace = false) {
   const formatted = String(message);
 
+  // Mirror every screen line into the durable log so a freeze leaves the last
+  // stage on disk. CrashLog is a classic script loaded before this module.
+  try {
+    if (window.CrashLog) window.CrashLog.info(formatted, type);
+  } catch (e) {}
+
   if (replace && logBuffer.length > 0) {
     // Reemplaza la ultima linea del buffer actual
     logBuffer[logBuffer.length - 1] = formatted;
@@ -77,24 +83,47 @@ function getWebKitBase() {
   throw new Error("WebKit base not found");
 }
 
+function cstage(name, detail) {
+  try {
+    if (window.CrashLog) window.CrashLog.stage(name, detail);
+  } catch (e) {}
+}
+
 async function run() {
+  cstage("site:run");
   const rejection = window.firmware.rejection();
   if (rejection)
     throw new Error(rejection);
   writeLog("Credits: ntfargo, ufm42, Sonic_Iso, Jordy, TheFlow, SlidyBat, Flatz, cow, nhk, bollarz, Sleirsgoevy, EchoStretch, EarthOnion");
   writeLog(`Agent: ${navigator.userAgent}`);
   writeLog(`Firmware: ${window.fw_str}`);
+  cstage("site:webkit");
   const primitive = await getPrimitive();
-  writeLog(`WebKit base: 0x${getWebKitBase().toString(16)}`);
+  const webkitBase = getWebKitBase();
+  writeLog(`WebKit base: 0x${webkitBase.toString(16)}`);
+  cstage("site:arw-ready", "webkit=0x" + webkitBase.toString(16));
 
+  cstage("site:kernel-exploit");
   await import("./relapse_exploit.js");
   await main(primitive);
+  cstage("site:done");
 }
 
-run().catch((error) => {
-  const message = error instanceof Error ? error.message : String(error);
-  // Si el mensaje ya se mostro antes (FAIL / STOP), no lo repetimos.
-  if (!logBuffer.some((line) => line.includes(message))) {
-    writeLog(message, "error");
-  }
-});
+run()
+  .then(() => {
+    // Clean finish: clears the "open" marker so the next launch does not
+    // report a crash that never happened.
+    try {
+      if (window.CrashLog) window.CrashLog.finish("ok");
+    } catch (e) {}
+  })
+  .catch((error) => {
+    const message = error instanceof Error ? error.message : String(error);
+    // Si el mensaje ya se mostro antes (FAIL / STOP), no lo repetimos.
+    if (!logBuffer.some((line) => line.includes(message))) {
+      writeLog(message, "error");
+    }
+    try {
+      if (window.CrashLog) window.CrashLog.finish("failed", message);
+    } catch (e) {}
+  });

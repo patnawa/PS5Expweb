@@ -14,6 +14,7 @@ function onload_setup() {
         localStorage.setItem("redirector_pinned", JSON.stringify(default_pinned_websites));
     }
 
+    migrateLegacyPinned();
     create_redirector_buttons();
 
     document.documentElement.style.overflowX = 'hidden';
@@ -95,11 +96,44 @@ function redirectorGo() {
     window.location = redirector_input_value;
 }
 
+// The Relapse entry now points at this project's Pages build instead of the
+// upstream ps5xploit host. The other two entries are different projects and
+// keep their original addresses.
+const OUR_PROJECT_RELAPSE_URL = "https://patnawa.github.io/PS5Expweb/relapse/";
+const LEGACY_RELAPSE_URLS = [
+    "https://ps5xploit.github.io/relapse/",
+    "https://ps5xploit.github.io/relapse",
+    "http://ps5xploit.github.io/relapse/"
+];
+
 const default_pinned_websites = [
     { url: "https://ps5xploit.github.io/umtx/", label: "1.xx - 5.xx" },
-    { url: "https://ps5xploit.github.io/relapse/", label: "7.xx - 13.60" },
+    { url: OUR_PROJECT_RELAPSE_URL, label: "7.xx - 13.60" },
     { url: "http://ps5shopappkg.pages.dev/", label: "Shop Appkg" }
 ];
+
+// Returning users already have the old host saved in localStorage, so the
+// default above never reaches them. Rewrite a stored legacy entry in place.
+function migrateLegacyPinned() {
+    try {
+        var raw = localStorage.getItem("redirector_pinned");
+        if (raw == null) return;
+        var parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return;
+        var changed = false;
+        for (var i = 0; i < parsed.length; i++) {
+            var entry = parsed[i];
+            var url = typeof entry === "string" ? entry : (entry && entry.url);
+            if (typeof url !== "string") continue;
+            var hit = LEGACY_RELAPSE_URLS.indexOf(url.replace(/\/+$/, "/"));
+            if (hit === -1 && LEGACY_RELAPSE_URLS.indexOf(url) === -1) continue;
+            if (typeof entry === "string") parsed[i] = OUR_PROJECT_RELAPSE_URL;
+            else entry.url = OUR_PROJECT_RELAPSE_URL;
+            changed = true;
+        }
+        if (changed) localStorage.setItem("redirector_pinned", JSON.stringify(parsed));
+    } catch (e) {}
+}
 
 function create_redirector_buttons() {
     let redirector_pinned_store_raw = localStorage.getItem("redirector_pinned");

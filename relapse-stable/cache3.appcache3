@@ -1,5 +1,5 @@
 CACHE MANIFEST
-# version 2026-10-12 21:11 #
+# version 2026-10-25 pldmgr-0.6.3 #
 
 appcache_handler.js
 custom_host_stuff.js
@@ -45,6 +45,7 @@ payloads/kexp_2026_05_25.bin
 payloads/kstuff.elf
 payloads/pldmgr.elf
 payloads/shadowmountplus.elf
+src/crashlog.js
 src/firmware.js
 src/kexp.js
 src/main.js

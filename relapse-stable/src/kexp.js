@@ -531,7 +531,10 @@ async function mapElfIntoUserland(name, p, chain, config) {
   if (p.read4(base) >>> 0 !== 0x464c457f)
     throw new Error("kexp: " + name + " did not read back from " + hex(base));
 
-  return { base, size: elf.length };
+  // "size" is the real file length; "mapped" is the page-rounded mapping the
+  // mmap call actually reserved. munmap needs the page-rounded value, so keep
+  // both: getting this wrong leaks ~2 MiB per payload for the whole session.
+  return { base, size: elf.length, mapped: size };
 }
 
 async function sendElfToElfldr(name, payload, p, chain) {
@@ -558,12 +561,17 @@ async function sendElfToElfldr(name, payload, p, chain) {
 }
 
 /**
- * Send pldmgr to the elfldr.
+ * Send the payload manager to the elfldr.
+ *
+ * Y2JB v1.0.3 (ps5-unified-autoloader v0.1.6) hands off to Payload Manager and
+ * lets it drive the rest of the chain. Payload Manager v0.6.3 installs and
+ * loads kstuff and shadowmountplus itself, so this only needs to ship
+ * pldmgr.elf. Sending the older v0.5.2 build was the actual payload-side gap.
  *
  * @param {object} p        userland read/write primitive
  * @param {object} chain    ROP worker
  * @param {function} log    progress sink
- * @param {object} options  { delayBetweenMs?: number }
+ * @param {object} options  { delayBetweenMs?: number, payloads?: string[] }
  */
 export async function loadOptionalPayloads(p, chain, log, options = {}) {
   const config =
@@ -572,15 +580,68 @@ export async function loadOptionalPayloads(p, chain, log, options = {}) {
     typeof options.delayBetweenMs === "number" ? options.delayBetweenMs : 2000;
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   const say = typeof log === "function" ? log : () => {};
+  const stage = (n, d) => {
+    try {
+      if (window.CrashLog) window.CrashLog.stage(n, d);
+    } catch (e) {}
+  };
+
+  // Only the payload manager is shipped. Payload Manager v0.6.3 installs and
+  // loads kstuff.elf and shadowmountplus.elf from its own catalog, which is how
+  // Y2JB v1.0.3 behaves: the unified autoloader starts Payload Manager and the
+  // manager owns the rest. Keep the list overridable for a manual chain.
+  const list = Array.isArray(options.payloads)
+    ? options.payloads
+    : Array.isArray(config.payloadList)
+      ? config.payloadList
+      : ["pldmgr.elf"];
 
   say("Loading payload... Please wait");
 
-  const etaHEN = await mapElfIntoUserland("pldmgr.elf", p, chain, config);
+  const loaded = [];
+  const failed = [];
 
-  await sendElfToElfldr("pldmgr.elf", etaHEN, p, chain);
-  await sleep(delayMs);
+  for (let i = 0; i < list.length; i++) {
+    const name = String(list[i]);
+    stage("payloads:map", name);
 
-  say("payload loaded");
+    let payload;
+    try {
+      payload = await mapElfIntoUserland(name, p, chain, config);
+    } catch (e) {
+      // A payload that is absent or unreadable must not abort the chain: the
+      // others are independent, and a partial load beats a dead session.
+      failed.push(name);
+      say(name + " unavailable: " + String((e && e.message) || e));
+      continue;
+    }
+
+    stage("payloads:send", name);
+    try {
+      await sendElfToElfldr(name, payload, p, chain);
+      loaded.push(name);
+      say(name + " loaded (" + payload.size + " bytes)");
+    } catch (e) {
+      failed.push(name);
+      say(name + " send failed: " + String((e && e.message) || e));
+    } finally {
+      // Free the staged copy once the bytes are in the loader. Holding three
+      // ~2 MiB mappings for the whole session is avoidable memory pressure.
+      try {
+        await chain.syscall(SYS_MUNMAP, payload.base, payload.mapped);
+      } catch (e) {}
+    }
+
+    if (i < list.length - 1) await sleep(delayMs);
+  }
+
+  say(
+    "payloads loaded: " +
+      (loaded.length ? loaded.join(", ") : "none") +
+      (failed.length ? " | failed: " + failed.join(", ") : ""),
+  );
+
+  return { loaded: loaded, failed: failed };
 }
 
 // ---- entry point ------------------------------------------------------------

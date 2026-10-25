@@ -76,8 +76,21 @@ async function findWorkerReturnSlot(p, stack, libKernelBase) {
   throw new Error(`worker wait return fingerprint count ${lastCount}, expected 1`);
 }
 
+function cstage(name, detail) {
+  try {
+    if (window.CrashLog) window.CrashLog.stage(name, detail);
+  } catch (e) {}
+}
+
 function log(message, type = "log") {
-  window.writeLog(message, type);
+  try {
+    window.writeLog(message, type);
+  } catch (e) {
+    // If the module has not installed writeLog yet, still persist the line.
+    try {
+      if (window.CrashLog) window.CrashLog.info(String(message), type);
+    } catch (e2) {}
+  }
 }
 
 // ============================================================
@@ -85,15 +98,29 @@ function log(message, type = "log") {
 // Se lanzan los payloads automaticamente con 2s de separacion.
 // ============================================================
 async function autoLoadPayloads(p, chain) {
-  //log("auto-loading kstuff, shadowmountplus and payloadmanager...", "info");
   try {
     const { loadOptionalPayloads } = await import("./kexp.js");
-    await loadOptionalPayloads(p, chain, (message) => log(message, "info"), {
-      delayBetweenMs: 2000, // 2 segundos entre payload y payload
+    // Sends only the newest Payload Manager (pldmgr.elf v0.6.3). Payload
+    // Manager installs and loads kstuff and shadowmountplus itself, so the web
+    // host no longer streams those two ELFs over elfldr. This mirrors Y2JB
+    // v1.0.3, whose unified autoloader starts Payload Manager and lets it own
+    // the rest of the chain.
+    const result = await loadOptionalPayloads(p, chain, (message) => log(message, "info"), {
+      delayBetweenMs: 2000,
     });
-    log("all payloads loaded", "info");
+    const loaded = (result && result.loaded) || [];
+    const failed = (result && result.failed) || [];
+    if (failed.length) {
+      log("payloads loaded: " + (loaded.join(", ") || "none") + " | failed: " + failed.join(", "), "warn");
+      cstage("main:payloads-partial", failed.join(","));
+    } else {
+      log("all payloads loaded: " + loaded.join(", "), "info");
+      cstage("main:payloads-all", String(loaded.length));
+    }
   } catch (error) {
-    log(error instanceof Error ? error.message : String(error), "error");
+    const message = error instanceof Error ? error.message : String(error);
+    log(message, "error");
+    cstage("main:payloads-error", message);
   }
 }
 
@@ -196,11 +223,14 @@ async function prepareRop(p) {
   jbmark("Worker", "waiting");
   await waitForWorker();
   jbmark("Worker", "ready");
+  cstage("main:worker-ready");
 
   const workerStack = await findWorkerStack(p, libKernelBase);
+  cstage("main:worker-stack");
   const originalContext = malloc(0x40);
 
   const returnAddress = await findWorkerReturnSlot(p, workerStack, libKernelBase);
+  cstage("main:return-slot");
   const originalReturnAddress = p.read8(returnAddress);
   const stackPointerSlot = returnAddress.add32(0x8);
 
@@ -263,7 +293,9 @@ async function prepareRop(p) {
 
   const JB_POISON = new int64(0xdeadbeef, 0x00c0ffee);
   p.write8(chain.return_value, JB_POISON);
+  cstage("main:rop-launch");
   const pid = await chain.syscall(SYS_GETPID);
+  cstage("main:rop-chain", "pid=" + pid.low);
   if (pid.low == JB_POISON.low && pid.hi == JB_POISON.hi) {
     throw new Error("Worker chain did not execute; the return slot is unchanged.");
   }
@@ -277,17 +309,24 @@ async function prepareRop(p) {
 }
 
 async function main(userlandRW) {
+  cstage("main:prepare-rop");
   const { p, chain } = await prepareRop(userlandRW);
+  cstage("main:rop-ready");
   const { runKernelExploit } = await import("./relapse_exploit.js");
+  cstage("main:kernel-exploit");
   const result = await runKernelExploit(p, chain, log);
+  cstage("main:kernel-result", result && result.done ? "done" : "stopped");
   if (!result || !result.done)
     throw new Error("kernel exploit did not finish");
 
   if (result.payloads) {
     log("kernel exploit complete", "info");
     log("elfldr is listening on port 9021", "info");
+    cstage("main:payloads");
     await autoLoadPayloads(p, chain);
+    cstage("main:payloads-done");
   } else {
     log("kernel chain complete: root and sandbox escape are active", "info");
   }
+  cstage("main:done");
 }
