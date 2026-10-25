@@ -5,6 +5,7 @@ import http.client
 import threading
 import unittest
 from http.server import ThreadingHTTPServer
+from pathlib import Path
 
 from serve import RelapseHandler, snapshot_files, verify_snapshot
 
@@ -80,6 +81,83 @@ class HostTests(unittest.TestCase):
         self.assertEqual(self.request("/diagnostics/host.js")[0], 200)
         for path in ("/diagnostics/missing", "/diagnostics/../README.md", "/diagnostics/%2e%2e/serve.py"):
             self.assertEqual(self.request(path)[0], 404)
+
+
+class QuietStagedHandler(RelapseHandler):
+    """Staged-mode handler with request logging suppressed."""
+
+    staged = True
+    staged_root = None
+
+    def log_message(self, *args):
+        pass
+
+
+class StagedHostTests(unittest.TestCase):
+    """Verify --staged serves the generated Pages tree, not the pinned snapshot."""
+
+    @classmethod
+    def setUpClass(cls):
+        import tempfile
+
+        from tools.stage_stable import stage
+
+        cls.tmp = Path(tempfile.mkdtemp(prefix="staged-host-"))
+        cls.tree = stage(cls.tmp / "pages")
+        QuietStagedHandler.staged_root = cls.tree.resolve()
+        cls.server = ThreadingHTTPServer(("127.0.0.1", 0), QuietStagedHandler)
+        cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
+        cls.thread.start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.shutdown()
+        cls.server.server_close()
+        cls.thread.join()
+        QuietStagedHandler.staged = False
+        QuietStagedHandler.staged_root = None
+        import shutil
+
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def request(self, path, method="GET"):
+        conn = http.client.HTTPConnection("127.0.0.1", self.server.server_port)
+        try:
+            conn.request(method, path)
+            response = conn.getresponse()
+            return response.status, response.headers, response.read()
+        finally:
+            conn.close()
+
+    def test_root_serves_generated_redirect_page(self):
+        # The staged tree's own index.html is a meta-refresh to relapse/, so the
+        # server must serve that file rather than short-circuit with a 302.
+        status, headers, body = self.request("/")
+        self.assertEqual(status, 200)
+        self.assertEqual(headers["Content-Type"], "text/html")
+        self.assertIn(b"relapse/", body)
+
+    def test_relapse_serves_staged_manifest_name(self):
+        status, _, body = self.request("/relapse/")
+        self.assertEqual(status, 200)
+        # stage_stable.py rewrites the manifest attribute to cache.appcache.
+        self.assertIn(b'manifest="cache.appcache"', body)
+        self.assertNotIn(b'manifest="cache3.appcache3"', body)
+
+    def test_staged_manifest_and_payload_are_served(self):
+        status, headers, body = self.request("/relapse/cache.appcache")
+        self.assertEqual(status, 200)
+        self.assertEqual(headers["Content-Type"], "text/cache-manifest")
+        self.assertIn(b"pldmgr-0.6.3", body)
+
+        status, headers, _ = self.request("/relapse/payloads/pldmgr.elf", "HEAD")
+        self.assertEqual(status, 200)
+        self.assertEqual(headers["Content-Type"], "application/octet-stream")
+
+    def test_staged_mode_still_blocks_escapes(self):
+        for path in ("/../serve.py", "/relapse/../../serve.py",
+                     "/relapse/%2e%2e/%2e%2e/serve.py", "/relapse/missing.js"):
+            self.assertEqual(self.request(path)[0], 404, path)
 
 
 if __name__ == "__main__":
