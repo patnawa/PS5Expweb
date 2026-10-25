@@ -316,6 +316,15 @@ async function main(userlandRW) {
   cstage("main:kernel-exploit");
   const result = await runKernelExploit(p, chain, log);
   cstage("main:kernel-result", result && result.done ? "done" : "stopped");
+  // The second-boot guard fired: a previous chain is still up on 9021 and the
+  // kernel is already patched. This is not a failure and must not throw --
+  // throwing made the page look crashed on a run that correctly refused to
+  // double-patch. Report it and stop without re-sending payloads.
+  if (result && result.alreadyJailbroken) {
+    log("already jailbroken: elfldr is up on port 9021, nothing to re-arm", "info");
+    cstage("main:done", "already-jailbroken");
+    return result;
+  }
   if (!result || !result.done)
     throw new Error("kernel exploit did not finish");
 
