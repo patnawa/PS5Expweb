@@ -1,0 +1,2 @@
+# Preserve the exact imported bytes used by the SHA-256 provenance checks.
+relapse/** -text

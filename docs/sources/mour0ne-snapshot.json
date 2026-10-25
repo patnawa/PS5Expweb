@@ -1,0 +1,512 @@
+{
+  "source": "https://ps5xploit.github.io/relapse/",
+  "scope": "entry page, manifest, and every asset in the deployed CACHE section",
+  "expected_count": 56,
+  "downloaded_count": 56,
+  "files": [
+    {
+      "path": "README.md",
+      "url": "https://ps5xploit.github.io/relapse/README.md",
+      "bytes": 438,
+      "sha256": "cd0bf85be8aa7ff0c21d362b42fdcccae50732d92b3c6b5142b939b84cb1e386",
+      "content_type": "text/markdown; charset=utf-8",
+      "etag": "\"6acc3728-1b6\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "appcache_handler.js",
+      "url": "https://ps5xploit.github.io/relapse/appcache_handler.js",
+      "bytes": 1959,
+      "sha256": "843c6f0bacd3acad42eef452f54043ad2fb0583b1a1ada0a18a44db62fbbf7f2",
+      "content_type": "application/javascript; charset=utf-8",
+      "etag": "\"6acc3728-7a7\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "cache3.appcache3",
+      "url": "https://ps5xploit.github.io/relapse/cache3.appcache3",
+      "bytes": 1072,
+      "sha256": "53c9eb8056429ceb0fc777437d0e992332731acc43a4ab744f4778a8a8ce359c",
+      "content_type": "application/octet-stream",
+      "etag": "\"6acc3728-430\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "custom_host_stuff.js",
+      "url": "https://ps5xploit.github.io/relapse/custom_host_stuff.js",
+      "bytes": 9771,
+      "sha256": "85f91ed91ee0a008c1fdb1381b773f942d656f9fd827742cd85c82757dcc6b9d",
+      "content_type": "application/javascript; charset=utf-8",
+      "etag": "\"6acc3728-262b\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "index.html",
+      "url": "https://ps5xploit.github.io/relapse/index.html",
+      "bytes": 420256,
+      "sha256": "553c450e3398a1fafc044cf96d2548ca3f08a3224d210a8b1059da57bbc231d6",
+      "content_type": "text/html; charset=utf-8",
+      "etag": "\"6acc3728-669a0\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "loading-astro.gif",
+      "url": "https://ps5xploit.github.io/relapse/loading-astro.gif",
+      "bytes": 4025785,
+      "sha256": "f39e36a4a08a28bdf341cf9bbc3ca4e591e009885fe11aafa39e5ca0b611f822",
+      "content_type": "image/gif",
+      "etag": "\"6acc3728-3d6db9\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "loading-astro3.gif",
+      "url": "https://ps5xploit.github.io/relapse/loading-astro3.gif",
+      "bytes": 1719243,
+      "sha256": "40f40084695081bc4c2fdb5b8c0e65fe4e15f2204acc3fdb63f7ddd1e5e68341",
+      "content_type": "image/gif",
+      "etag": "\"6acc3728-1a3bcb\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "offsets/10.00.js",
+      "url": "https://ps5xploit.github.io/relapse/offsets/10.00.js",
+      "bytes": 11352,
+      "sha256": "23a0e624f4b566b8188c47486177eaf0fe4853148ffe1eaba9894650d3b22a65",
+      "content_type": "application/javascript; charset=utf-8",
+      "etag": "\"6acc3728-2c58\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "offsets/10.01.js",
+      "url": "https://ps5xploit.github.io/relapse/offsets/10.01.js",
+      "bytes": 11351,
+      "sha256": "203062c0085941bba84ffc7b40465f642f37f94c0f414b1a16ddd16c89f0073d",
+      "content_type": "application/javascript; charset=utf-8",
+      "etag": "\"6acc3728-2c57\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "offsets/10.20.js",
+      "url": "https://ps5xploit.github.io/relapse/offsets/10.20.js",
+      "bytes": 11351,
+      "sha256": "60b5823268fcc855680d9538662144cd1064bb24e5266ea597311925c7437089",
+      "content_type": "application/javascript; charset=utf-8",
+      "etag": "\"6acc3728-2c57\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "offsets/10.40.js",
+      "url": "https://ps5xploit.github.io/relapse/offsets/10.40.js",
+      "bytes": 11351,
+      "sha256": "28e86590dee5feeb4918b75e2db1f0b6d6cf1a1358c6e6b4c713cb07a1c95ef7",
+      "content_type": "application/javascript; charset=utf-8",
+      "etag": "\"6acc3728-2c57\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "offsets/10.60.js",
+      "url": "https://ps5xploit.github.io/relapse/offsets/10.60.js",
+      "bytes": 11301,
+      "sha256": "e5f8bb96dd50af9419c29c7dd16ac033ef26fa928369c2721a092263ea454a8d",
+      "content_type": "application/javascript; charset=utf-8",
+      "etag": "\"6acc3728-2c25\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "offsets/11.00.js",
+      "url": "https://ps5xploit.github.io/relapse/offsets/11.00.js",
+      "bytes": 11351,
+      "sha256": "3f62e413c124d0166141e793e4b190018a92a8ac00022342271da562ba63a6c8",
+      "content_type": "application/javascript; charset=utf-8",
+      "etag": "\"6acc3728-2c57\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "offsets/11.20.js",
+      "url": "https://ps5xploit.github.io/relapse/offsets/11.20.js",
+      "bytes": 11351,
+      "sha256": "f18615129b879a67b4deae62aa17500c96155ee3eda7bd42cf82aaa27463a848",
+      "content_type": "application/javascript; charset=utf-8",
+      "etag": "\"6acc3728-2c57\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "offsets/11.60.js",
+      "url": "https://ps5xploit.github.io/relapse/offsets/11.60.js",
+      "bytes": 11919,
+      "sha256": "67315a4b6868bd2eea3cca36290fb5d3a5e12c2df654e31c503811db3ddfab4d",
+      "content_type": "application/javascript; charset=utf-8",
+      "etag": "\"6acc3728-2e8f\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "offsets/12.00.js",
+      "url": "https://ps5xploit.github.io/relapse/offsets/12.00.js",
+      "bytes": 12783,
+      "sha256": "d7f1afffc3d25373c7754ac44a2f6d7aedacc90718b4b814e9ee95c5a314f25f",
+      "content_type": "application/javascript; charset=utf-8",
+      "etag": "\"6acc3728-31ef\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "offsets/12.02.js",
+      "url": "https://ps5xploit.github.io/relapse/offsets/12.02.js",
+      "bytes": 12320,
+      "sha256": "b913009b5dfd2ed24b952ee976ac1aac4b6e2ff66146510d994d3ec885331af7",
+      "content_type": "application/javascript; charset=utf-8",
+      "etag": "\"6acc3728-3020\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "offsets/12.20.js",
+      "url": "https://ps5xploit.github.io/relapse/offsets/12.20.js",
+      "bytes": 12318,
+      "sha256": "388c4880f44a49a0a8d6cda376115e6a1087485cbc1a91320d5a4358b853bffc",
+      "content_type": "application/javascript; charset=utf-8",
+      "etag": "\"6acc3728-301e\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "offsets/12.40.js",
+      "url": "https://ps5xploit.github.io/relapse/offsets/12.40.js",
+      "bytes": 12320,
+      "sha256": "28269726e800c2ba14112c714e3246ba025533dfe0e4199ea27892dc3bdd17f0",
+      "content_type": "application/javascript; charset=utf-8",
+      "etag": "\"6acc3728-3020\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "offsets/12.60.js",
+      "url": "https://ps5xploit.github.io/relapse/offsets/12.60.js",
+      "bytes": 12320,
+      "sha256": "a51c94ee5f288a2c362b72d802b088568791a2946fa57cfb461155d16886a6e5",
+      "content_type": "application/javascript; charset=utf-8",
+      "etag": "\"6acc3728-3020\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "offsets/12.70.js",
+      "url": "https://ps5xploit.github.io/relapse/offsets/12.70.js",
+      "bytes": 12177,
+      "sha256": "f7d9c5130a16943f6d18a133bf2e8c71b7e2f3454032d6d64ed4756f6f0a078b",
+      "content_type": "application/javascript; charset=utf-8",
+      "etag": "\"6acc3728-2f91\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "offsets/13.00.js",
+      "url": "https://ps5xploit.github.io/relapse/offsets/13.00.js",
+      "bytes": 11693,
+      "sha256": "4b009a8a12fa39558f21549bd6d609fa04a6b937124d9574a72c75e9ef738206",
+      "content_type": "application/javascript; charset=utf-8",
+      "etag": "\"6acc3728-2dad\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "offsets/13.20.js",
+      "url": "https://ps5xploit.github.io/relapse/offsets/13.20.js",
+      "bytes": 10952,
+      "sha256": "6c45b7bb2319b1888160fc065a1d50d51cf7150f5a97ed01274dd8ef427926dd",
+      "content_type": "application/javascript; charset=utf-8",
+      "etag": "\"6acc3728-2ac8\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "offsets/13.40.js",
+      "url": "https://ps5xploit.github.io/relapse/offsets/13.40.js",
+      "bytes": 10952,
+      "sha256": "55e07df0216d2bf10b14cb83a393cce14539879a7cd598ecb2c9ed933a85d662",
+      "content_type": "application/javascript; charset=utf-8",
+      "etag": "\"6acc3728-2ac8\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "offsets/13.42.js",
+      "url": "https://ps5xploit.github.io/relapse/offsets/13.42.js",
+      "bytes": 10952,
+      "sha256": "ba2458d7a2317e84ee11edb205e74817965713d90714bd43f4f7c432c51df44f",
+      "content_type": "application/javascript; charset=utf-8",
+      "etag": "\"6acc3728-2ac8\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "offsets/13.60.js",
+      "url": "https://ps5xploit.github.io/relapse/offsets/13.60.js",
+      "bytes": 13939,
+      "sha256": "25d2b09176a687bcf3c38eee52acfdbf78cc583d9eb6b573d5773399a660f8dd",
+      "content_type": "application/javascript; charset=utf-8",
+      "etag": "\"6acc3728-3673\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "offsets/7.00.js",
+      "url": "https://ps5xploit.github.io/relapse/offsets/7.00.js",
+      "bytes": 11273,
+      "sha256": "2783ad919f990f9a9c32d0a6c1548390d9935f39f12e30e88e8556cb932d54c9",
+      "content_type": "application/javascript; charset=utf-8",
+      "etag": "\"6acc3728-2c09\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "offsets/7.01.js",
+      "url": "https://ps5xploit.github.io/relapse/offsets/7.01.js",
+      "bytes": 11273,
+      "sha256": "33159eb5194e68063670d4436269fd9b649cd15e21b740b4a8908fbd083c5a62",
+      "content_type": "application/javascript; charset=utf-8",
+      "etag": "\"6acc3728-2c09\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "offsets/7.20.js",
+      "url": "https://ps5xploit.github.io/relapse/offsets/7.20.js",
+      "bytes": 11293,
+      "sha256": "2ad96fb5928bfef623de9715b08f8c8cc97a1b54492f1e88c1f7e67db8a5b454",
+      "content_type": "application/javascript; charset=utf-8",
+      "etag": "\"6acc3728-2c1d\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "offsets/7.40.js",
+      "url": "https://ps5xploit.github.io/relapse/offsets/7.40.js",
+      "bytes": 11293,
+      "sha256": "0d03f0394133cc9bd63deeee32053f4dd20fe9ed7ddbddc720f1d70cc1d8bd1a",
+      "content_type": "application/javascript; charset=utf-8",
+      "etag": "\"6acc3728-2c1d\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "offsets/7.60.js",
+      "url": "https://ps5xploit.github.io/relapse/offsets/7.60.js",
+      "bytes": 11293,
+      "sha256": "8d193a9c820a9a28d40f4e804824b7e72bbe6a9e1bb0ea40c77f583212220485",
+      "content_type": "application/javascript; charset=utf-8",
+      "etag": "\"6acc3728-2c1d\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "offsets/7.61.js",
+      "url": "https://ps5xploit.github.io/relapse/offsets/7.61.js",
+      "bytes": 11293,
+      "sha256": "cb57359fe88f6f1ddb660a4db1a32628c098f49535e622a17ca59b032b4c82f8",
+      "content_type": "application/javascript; charset=utf-8",
+      "etag": "\"6acc3728-2c1d\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "offsets/8.00.js",
+      "url": "https://ps5xploit.github.io/relapse/offsets/8.00.js",
+      "bytes": 11313,
+      "sha256": "d8bf9a9e6b76dd650b884a0f1bda633166206d42160e15d64008ba98c330a575",
+      "content_type": "application/javascript; charset=utf-8",
+      "etag": "\"6acc3728-2c31\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "offsets/8.20.js",
+      "url": "https://ps5xploit.github.io/relapse/offsets/8.20.js",
+      "bytes": 11313,
+      "sha256": "920ba75eb9679588465ec0b39f8f04acbee9f93a84549c43ee4c2dc037ed7b4f",
+      "content_type": "application/javascript; charset=utf-8",
+      "etag": "\"6acc3728-2c31\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "offsets/8.40.js",
+      "url": "https://ps5xploit.github.io/relapse/offsets/8.40.js",
+      "bytes": 11313,
+      "sha256": "e5978f69d09137c65280c7a30524d3ff4d3355452e5af4bdf2cd3782429be3af",
+      "content_type": "application/javascript; charset=utf-8",
+      "etag": "\"6acc3728-2c31\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "offsets/8.60.js",
+      "url": "https://ps5xploit.github.io/relapse/offsets/8.60.js",
+      "bytes": 11313,
+      "sha256": "cf9ca033e9f773b9d4a665516f674ebf40daa202bee72390c7bd5f9b0272ca0a",
+      "content_type": "application/javascript; charset=utf-8",
+      "etag": "\"6acc3728-2c31\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "offsets/9.00.js",
+      "url": "https://ps5xploit.github.io/relapse/offsets/9.00.js",
+      "bytes": 11350,
+      "sha256": "514a79fe229a0f1ac131aa450f9ce2e8b7f4a08fb6fefd036bbfd35bdeb6d458",
+      "content_type": "application/javascript; charset=utf-8",
+      "etag": "\"6acc3728-2c56\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "offsets/9.20.js",
+      "url": "https://ps5xploit.github.io/relapse/offsets/9.20.js",
+      "bytes": 11350,
+      "sha256": "278580cde067cb876caff4a66fab445f64713dc04cf37ef708a8ad93bdde2a7b",
+      "content_type": "application/javascript; charset=utf-8",
+      "etag": "\"6acc3728-2c56\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "offsets/9.40.js",
+      "url": "https://ps5xploit.github.io/relapse/offsets/9.40.js",
+      "bytes": 11350,
+      "sha256": "be63f0e84d9dbc5fabdf278ea785e3403aea7051d575ab22e811c162f607761e",
+      "content_type": "application/javascript; charset=utf-8",
+      "etag": "\"6acc3728-2c56\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "offsets/9.60.js",
+      "url": "https://ps5xploit.github.io/relapse/offsets/9.60.js",
+      "bytes": 11350,
+      "sha256": "9dad0a62346d5c487ab0a5eebfeb710309535cd9dd3f83b5b6e437878b240273",
+      "content_type": "application/javascript; charset=utf-8",
+      "etag": "\"6acc3728-2c56\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "payloads/elfldr-ps5-1360.elf",
+      "url": "https://ps5xploit.github.io/relapse/payloads/elfldr-ps5-1360.elf",
+      "bytes": 397024,
+      "sha256": "de5dd480d12637527ba2d75e35de851adbb59c455293fa32588c492ef6b44b81",
+      "content_type": "application/octet-stream",
+      "etag": "\"6acc3728-60ee0\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "payloads/kexp_2026_05_25.bin",
+      "url": "https://ps5xploit.github.io/relapse/payloads/kexp_2026_05_25.bin",
+      "bytes": 18912,
+      "sha256": "7cfb3a8cb86db67893c360ae3531f460f800e9f24039797038e6e81fc50f18a9",
+      "content_type": "application/octet-stream",
+      "etag": "\"6acc3728-49e0\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "payloads/kstuff.elf",
+      "url": "https://ps5xploit.github.io/relapse/payloads/kstuff.elf",
+      "bytes": 1802280,
+      "sha256": "829b45fe871dd64fbd53874ae4558076c2f1e1f203fe1ab52db5510d5fc45923",
+      "content_type": "application/octet-stream",
+      "etag": "\"6acc3728-1b8028\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "payloads/pldmgr.elf",
+      "url": "https://ps5xploit.github.io/relapse/payloads/pldmgr.elf",
+      "bytes": 2410776,
+      "sha256": "62b3ba2a4937c2afc502f9a4e7242cca538610ebb4ae2800c7c6f72e7f268e7c",
+      "content_type": "application/octet-stream",
+      "etag": "\"6acc3728-24c918\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "payloads/shadowmountplus.elf",
+      "url": "https://ps5xploit.github.io/relapse/payloads/shadowmountplus.elf",
+      "bytes": 2475496,
+      "sha256": "fc4e5f715e76660ce34bde2adb10eaf1d069cb2cdf06f7a380896dfb62bd0c4a",
+      "content_type": "application/octet-stream",
+      "etag": "\"6acc3728-25c5e8\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "src/firmware.js",
+      "url": "https://ps5xploit.github.io/relapse/src/firmware.js",
+      "bytes": 915,
+      "sha256": "0266eb3ab0a674a83ddcd708f2bd2ff9cbde7aabac50d077f1baaad21b195bf4",
+      "content_type": "application/javascript; charset=utf-8",
+      "etag": "\"6acc3728-393\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "src/kexp.js",
+      "url": "https://ps5xploit.github.io/relapse/src/kexp.js",
+      "bytes": 21100,
+      "sha256": "a6325ca84ddb9b921f83e1e7dc1a471c2ab7a6e36a788d2e5e7b9caec3e3f98a",
+      "content_type": "application/javascript; charset=utf-8",
+      "etag": "\"6acc3728-526c\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "src/main.js",
+      "url": "https://ps5xploit.github.io/relapse/src/main.js",
+      "bytes": 9383,
+      "sha256": "2ca5f4587c8195adf9b33fdee29973a794fb433f396c8db017dba05892de1d2b",
+      "content_type": "application/javascript; charset=utf-8",
+      "etag": "\"6acc3728-24a7\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "src/relapse_exploit.js",
+      "url": "https://ps5xploit.github.io/relapse/src/relapse_exploit.js",
+      "bytes": 60250,
+      "sha256": "795ad792cc6cddd90ea416942a646d65fbf68d7efb257e2461019ed8cc9fcd41",
+      "content_type": "application/javascript; charset=utf-8",
+      "etag": "\"6acc3728-eb5a\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "src/rop.js",
+      "url": "https://ps5xploit.github.io/relapse/src/rop.js",
+      "bytes": 3410,
+      "sha256": "5e07dccb8ebf059964c8d520c5df9ba1abe13b179167da77b7553ac5e47bbdb3",
+      "content_type": "application/javascript; charset=utf-8",
+      "etag": "\"6acc3728-d52\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "src/site.js",
+      "url": "https://ps5xploit.github.io/relapse/src/site.js",
+      "bytes": 2970,
+      "sha256": "8ea5118531bd68226405bc64675e8efea194cdb3135b6207af3b7b9c9f801634",
+      "content_type": "application/javascript; charset=utf-8",
+      "etag": "\"6acc3728-b9a\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "src/utils/int64.js",
+      "url": "https://ps5xploit.github.io/relapse/src/utils/int64.js",
+      "bytes": 1370,
+      "sha256": "0ae17a26c6280cf615acf206d013b53ffc6933bbde60066db8aad36f4ae3f015",
+      "content_type": "application/javascript; charset=utf-8",
+      "etag": "\"6acc3728-55a\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "src/utils/mem.js",
+      "url": "https://ps5xploit.github.io/relapse/src/utils/mem.js",
+      "bytes": 4854,
+      "sha256": "250289a34f114f78e4d4893b1fc75dcc067079edb73d495318b5f897344f3513",
+      "content_type": "application/javascript; charset=utf-8",
+      "etag": "\"6acc3728-12f6\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "src/utils/rop_slave.js",
+      "url": "https://ps5xploit.github.io/relapse/src/utils/rop_slave.js",
+      "bytes": 85,
+      "sha256": "18f8bd08d5fcbea849d2b5253aadfd1564c94967e98ebd6ad70c1fd7db3b1924",
+      "content_type": "application/javascript; charset=utf-8",
+      "etag": "\"6acc3728-55\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "src/utils/syscalls.js",
+      "url": "https://ps5xploit.github.io/relapse/src/utils/syscalls.js",
+      "bytes": 16460,
+      "sha256": "fb38b26e4e4580a7ecfba56d652d75fbfabc17f3e5630a8940181caaf97829c9",
+      "content_type": "application/javascript; charset=utf-8",
+      "etag": "\"6acc3728-404c\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    },
+    {
+      "path": "src/webkit.js",
+      "url": "https://ps5xploit.github.io/relapse/src/webkit.js",
+      "bytes": 20965,
+      "sha256": "3377ccc7c10a86a5ece4ea3249f1b45b54c20de7a5a96e77a75c54ada373b0ca",
+      "content_type": "application/javascript; charset=utf-8",
+      "etag": "\"6acc3728-51e5\"",
+      "last_modified": "Mon, 12 Oct 2026 01:26:00 GMT"
+    }
+  ]
+}

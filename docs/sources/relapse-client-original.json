@@ -1,0 +1,331 @@
+{
+  "path": "C:\\Users\\Alpha\\Documents\\GitHub\\PS5Expweb\\mPS5XPLOIT-RELAPSE.pkg",
+  "sha256": "bd5bb5f5c543ded822e398481582859290d460ec0ea145fd9c6c1a19cc3b330b",
+  "bytes": 21838365,
+  "Type": "FullDebug",
+  "Fih": {
+    "SignedByte": 0,
+    "IsOfficial": false,
+    "FormatVersion": 3,
+    "IsSupportedFormatVersion": true,
+    "PfsImageOffset": 65536,
+    "PfsImageSize": 655360,
+    "EmbeddedCntOffset": 720896
+  },
+  "Header": {
+    "Magic": "f0NOVA==",
+    "Flags": 131073,
+    "EntryCount": 17,
+    "ScEntryCount": 6,
+    "EntryTableOffset": 13664,
+    "BodyOffset": 8192,
+    "BodySize": 21094400,
+    "ContentId": "IV9999-MOUU10026_00-XXXXXXXXXXXXXXXX",
+    "DrmType": 0,
+    "ContentType": 32,
+    "ContentFlags": 33685504
+  },
+  "Entries": [
+    {
+      "Id": "Digests",
+      "RawId": 1,
+      "NameTableOffset": 0,
+      "Flags1": 1073741824,
+      "Flags2": 0,
+      "DataOffset": 14208,
+      "DataSize": 544,
+      "Name": null,
+      "KeyIndex": 0,
+      "Encrypted": false
+    },
+    {
+      "Id": "EntryKeys",
+      "RawId": 16,
+      "NameTableOffset": 0,
+      "Flags1": 1610612736,
+      "Flags2": 0,
+      "DataOffset": 8192,
+      "DataSize": 2944,
+      "Name": null,
+      "KeyIndex": 0,
+      "Encrypted": false
+    },
+    {
+      "Id": "ImageKey",
+      "RawId": 32,
+      "NameTableOffset": 0,
+      "Flags1": 1610612736,
+      "Flags2": 0,
+      "DataOffset": 11136,
+      "DataSize": 2048,
+      "Name": null,
+      "KeyIndex": 0,
+      "Encrypted": false
+    },
+    {
+      "Id": "GeneralDigests",
+      "RawId": 128,
+      "NameTableOffset": 0,
+      "Flags1": 1610612736,
+      "Flags2": 0,
+      "DataOffset": 13184,
+      "DataSize": 480,
+      "Name": null,
+      "KeyIndex": 0,
+      "Encrypted": false
+    },
+    {
+      "Id": "Metas",
+      "RawId": 256,
+      "NameTableOffset": 0,
+      "Flags1": 1610612736,
+      "Flags2": 0,
+      "DataOffset": 13664,
+      "DataSize": 544,
+      "Name": null,
+      "KeyIndex": 0,
+      "Encrypted": false
+    },
+    {
+      "Id": "EntryNames",
+      "RawId": 512,
+      "NameTableOffset": 0,
+      "Flags1": 1073741824,
+      "Flags2": 0,
+      "DataOffset": 14752,
+      "DataSize": 123,
+      "Name": null,
+      "KeyIndex": 0,
+      "Encrypted": false
+    },
+    {
+      "Id": "Imagedigs",
+      "RawId": 1034,
+      "NameTableOffset": 0,
+      "Flags1": 134217728,
+      "Flags2": 0,
+      "DataOffset": 16256,
+      "DataSize": 320,
+      "Name": null,
+      "KeyIndex": 0,
+      "Encrypted": false
+    },
+    {
+      "Id": "PlaygoChunkDat",
+      "RawId": 4097,
+      "NameTableOffset": 1,
+      "Flags1": 134217728,
+      "Flags2": 0,
+      "DataOffset": 16576,
+      "DataSize": 416,
+      "Name": "playgo-chunk.dat",
+      "KeyIndex": 0,
+      "Encrypted": false
+    },
+    {
+      "Id": "Unknown",
+      "RawId": 4102,
+      "NameTableOffset": 18,
+      "Flags1": 134217728,
+      "Flags2": 0,
+      "DataOffset": 16992,
+      "DataSize": 2081251,
+      "Name": "pic1.png",
+      "KeyIndex": 0,
+      "Encrypted": false
+    },
+    {
+      "Id": "Icon0Png",
+      "RawId": 4608,
+      "NameTableOffset": 27,
+      "Flags1": 134217728,
+      "Flags2": 0,
+      "DataOffset": 2098256,
+      "DataSize": 52734,
+      "Name": "icon0.png",
+      "KeyIndex": 0,
+      "Encrypted": false
+    },
+    {
+      "Id": "Pic0Png",
+      "RawId": 4640,
+      "NameTableOffset": 37,
+      "Flags1": 134217728,
+      "Flags2": 0,
+      "DataOffset": 2150992,
+      "DataSize": 2081251,
+      "Name": "pic0.png",
+      "KeyIndex": 0,
+      "Encrypted": false
+    },
+    {
+      "Id": "Icon0Dds",
+      "RawId": 4736,
+      "NameTableOffset": 46,
+      "Flags1": 134217728,
+      "Flags2": 0,
+      "DataOffset": 4232256,
+      "DataSize": 262292,
+      "Name": "icon0.dds",
+      "KeyIndex": 0,
+      "Encrypted": false
+    },
+    {
+      "Id": "Pic0Dds",
+      "RawId": 4768,
+      "NameTableOffset": 56,
+      "Flags1": 134217728,
+      "Flags2": 0,
+      "DataOffset": 4494560,
+      "DataSize": 8294548,
+      "Name": "pic0.dds",
+      "KeyIndex": 0,
+      "Encrypted": false
+    },
+    {
+      "Id": "Pic1Dds",
+      "RawId": 4800,
+      "NameTableOffset": 65,
+      "Flags1": 134217728,
+      "Flags2": 0,
+      "DataOffset": 12789120,
+      "DataSize": 8294548,
+      "Name": "pic1.dds",
+      "KeyIndex": 0,
+      "Encrypted": false
+    },
+    {
+      "Id": "ParamJson",
+      "RawId": 8192,
+      "NameTableOffset": 74,
+      "Flags1": 0,
+      "Flags2": 0,
+      "DataOffset": 14880,
+      "DataSize": 1364,
+      "Name": "param.json",
+      "KeyIndex": 0,
+      "Encrypted": false
+    },
+    {
+      "Id": "PlaygoHashTable",
+      "RawId": 8208,
+      "NameTableOffset": 85,
+      "Flags1": 134217728,
+      "Flags2": 0,
+      "DataOffset": 21083680,
+      "DataSize": 80,
+      "Name": "playgo-hash-table.dat",
+      "KeyIndex": 0,
+      "Encrypted": false
+    },
+    {
+      "Id": "PlaygoFicm",
+      "RawId": 8209,
+      "NameTableOffset": 107,
+      "Flags1": 134217728,
+      "Flags2": 0,
+      "DataOffset": 21083760,
+      "DataSize": 22,
+      "Name": "playgo-ficm.dat",
+      "KeyIndex": 0,
+      "Encrypted": false
+    }
+  ],
+  "metadata": {
+    "param.json": {
+      "addcont": {
+        "serviceIdForSharing": [
+          "                   ",
+          "                   ",
+          "                   ",
+          "                   ",
+          "                   ",
+          "                   ",
+          "                   "
+        ]
+      },
+      "ageLevel": {
+        "US": 0,
+        "default": 0
+      },
+      "applicationCategoryType": 0,
+      "applicationDrmType": "free",
+      "attribute": 0,
+      "attribute2": 0,
+      "attribute3": 0,
+      "conceptId": "0",
+      "contentBadgeType": 2,
+      "contentId": "IV9999-MOUU10026_00-XXXXXXXXXXXXXXXX",
+      "contentVersion": "01.000.000",
+      "deeplinkUri": "https://ps5xploit.github.io/relapse/",
+      "displayLocation": 188,
+      "localizedParameters": {
+        "defaultLanguage": "en-US",
+        "en-US": {
+          "titleName": "\u2605 \uEFDDXPLOIT Host \u2605 RELAPSE \uEFDC[7.xx - 13.60]"
+        }
+      },
+      "masterVersion": "01.00",
+      "pubtools": {
+        "creationDate": "2026-10-10 11:12:48",
+        "toolVersion": "1.21"
+      },
+      "requiredSystemSoftwareVersion": "0x0000000000000000",
+      "sdkVersion": "0x0000000000000000",
+      "titleId": "MOUU10026",
+      "versionFileUri": "                                                                                                                                                                                                                                                               "
+    }
+  },
+  "filesystem": null,
+  "filesystemError": "None of the derived/supplied keys decrypted the outer filesystem.",
+  "structuralAcceptance": {
+    "Checks": [
+      {
+        "Name": "Finalized image",
+        "Status": "Pass",
+        "Detail": "Finalized debug image (signed byte 0x00)."
+      },
+      {
+        "Name": "FIH format version",
+        "Status": "Pass",
+        "Detail": "Version 3 (required: 3)."
+      },
+      {
+        "Name": "PFS image offset",
+        "Status": "Pass",
+        "Detail": "0x10000."
+      },
+      {
+        "Name": "PFS image present",
+        "Status": "Pass",
+        "Detail": "0xA0000 bytes."
+      },
+      {
+        "Name": "Embedded CNT",
+        "Status": "Pass",
+        "Detail": "17 entries, 6 system entries."
+      },
+      {
+        "Name": "EEKPFS key entry",
+        "Status": "Pass",
+        "Detail": "Image-key entry (0x20) present."
+      },
+      {
+        "Name": "Content-id",
+        "Status": "Pass",
+        "Detail": "IV9999-MOUU10026_00-XXXXXXXXXXXXXXXX"
+      },
+      {
+        "Name": "Content-info",
+        "Status": "Pass",
+        "Detail": "title-id=MOUU10026, drm_type=0x0, content_type=0x20, content_flags=0x02020000, patch=None, nested=True."
+      }
+    ],
+    "Accepted": true,
+    "HasWarnings": false
+  },
+  "nativeLaunchReady": null,
+  "warnings": [],
+  "consoleTested": false,
+  "limitation": "Structural validation does not verify console acceptance or native execution. Empty eboot shortcut behavior requires console testing."
+}

@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.local/
+build/
+tools/client-builder/bin/
+tools/client-builder/obj/

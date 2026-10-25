@@ -1,0 +1,116 @@
+{
+  "evidence_id": "ev_e404eedf987d8552767dd321f41b5bbd4166fa168c69668cb3d24a8b9f088de2",
+  "subject": {
+    "name": "client-supplement.zip",
+    "digest": {
+      "sha256": "56147d0c48eb6ecee79d4c414af37f71be2b923f58e19756ff7898f55dd49605"
+    },
+    "local_path": "C:\\Users\\Alpha\\Documents\\GitHub\\PS5Expweb\\.local\\client-supplement.zip",
+    "format": "zip",
+    "architecture": null
+  },
+  "provider": {
+    "id": "rea-analysis-view",
+    "name": "REA analysis view projection",
+    "version": "1"
+  },
+  "analysis_profile": null,
+  "predicate_type": "rea.analysis-view",
+  "operation": "inspect_analysis_view",
+  "parameters": {
+    "parent_evidence_id": "ev_772c9f082a8d1de7a360e1c4c616f608ec955ee1b6d0ab42c2d52c3e7b8fd7eb",
+    "view": {
+      "kind": "summary"
+    }
+  },
+  "raw_result": null,
+  "normalized_result": {
+    "kind": "summary",
+    "view": {
+      "kind": "summary"
+    },
+    "parent_evidence_id": "ev_772c9f082a8d1de7a360e1c4c616f608ec955ee1b6d0ab42c2d52c3e7b8fd7eb",
+    "parent_operation": "inspect_artifact",
+    "parent_digest": "772c9f082a8d1de7a360e1c4c616f608ec955ee1b6d0ab42c2d52c3e7b8fd7eb",
+    "view_digest": "4e2f2ef029d47a382d4f98fd928f290ceaa6bfcf48824fae8da485fbab1093e7",
+    "artifact": {
+      "path": "C:\\Users\\Alpha\\Documents\\GitHub\\PS5Expweb\\.local\\client-supplement.zip",
+      "sha256": "56147d0c48eb6ecee79d4c414af37f71be2b923f58e19756ff7898f55dd49605"
+    },
+    "coverage": {
+      "status": "complete-within-view",
+      "examined": 23,
+      "total": 23,
+      "next_offset": null,
+      "exhausted": true
+    },
+    "limitations": [
+      "Inspection derives bounded static hypotheses and next probes; it does not execute the artifact or claim format-specific semantics.",
+      "ZIP inventory lists central-directory entries only. Non-entry bytes, including an APK Signing Block before the central directory or a ZIP comment after it, are not occurrences."
+    ],
+    "unknowns": [
+      "Inventory does not establish application runtime behavior or complete format-specific analysis."
+    ],
+    "summary": {
+      "manifest": {
+        "manifest_id": "agm_0add14d719c44dc9f0215769512b5109d09e7ed414a692ee8d3d3f3059764e5d",
+        "root_artifact_id": "art_1b0f1f17f507bbf35d19b2a8df758f454a1f77ab38fa486e0b1569a3127fef2c",
+        "root_sha256": "56147d0c48eb6ecee79d4c414af37f71be2b923f58e19756ff7898f55dd49605",
+        "root_format": "zip",
+        "graph_sha256": "f475b42ed4042f35307126377c1071baa4f87e9bef5213dad11ebc168e42b717",
+        "node_count": 6,
+        "occurrence_count": 9,
+        "edge_count": 8
+      },
+      "available_counts": {
+        "nodes": 6,
+        "occurrences": 9,
+        "edges": 8,
+        "integrity_contradictions": 0
+      },
+      "observed_entry_kind_counts": {
+        "file": 9,
+        "directory": 0,
+        "symlink": 0,
+        "slice": 0
+      },
+      "source_complete": true,
+      "inventory_evidence_ids": [
+        "ev_1c9e2f35f3a29dfb59f767a75059b9486ec7604099de46e846fb9915d73bf83a"
+      ],
+      "inspection": {
+        "coverage": {
+          "status": "complete-within-substeps",
+          "substeps_completed": 1,
+          "observations_retained": 1,
+          "observations_omitted": 0,
+          "hypotheses_retained": 0,
+          "hypotheses_omitted": 0,
+          "unexplored_branches_retained": 0,
+          "unexplored_branches_omitted": 0,
+          "next_probes_retained": 0,
+          "next_probes_omitted": 0
+        },
+        "unexplored_branches": []
+      },
+      "limitation_count": 2
+    }
+  },
+  "confidence": "derived",
+  "authority": "shipped-artifact",
+  "environment": null,
+  "limitations": [
+    "Inspection derives bounded static hypotheses and next probes; it does not execute the artifact or claim format-specific semantics.",
+    "ZIP inventory lists central-directory entries only. Non-entry bytes, including an APK Signing Block before the central directory or a ZIP comment after it, are not occurrences."
+  ],
+  "relationship_coverage": null,
+  "locations": [
+    {
+      "kind": "artifact-path",
+      "path": "C:\\Users\\Alpha\\Documents\\GitHub\\PS5Expweb\\.local\\client-supplement.zip"
+    }
+  ],
+  "evidence_links": [
+    "ev_772c9f082a8d1de7a360e1c4c616f608ec955ee1b6d0ab42c2d52c3e7b8fd7eb"
+  ]
+}

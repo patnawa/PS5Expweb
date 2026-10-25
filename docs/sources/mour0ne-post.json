@@ -1,0 +1,115 @@
+{
+  "thread": {
+    "post": {
+      "uri": "at://did:plc:xphzx6tbdb3vzhuzmavk2jvv/app.bsky.feed.post/3mxjfk5x2gk2h",
+      "cid": "bafyreiaqnlvuzy3j523htow5ydiwcehiskvjmwtxexbqw23bwxzjj6sclq",
+      "author": {
+        "did": "did:plc:xphzx6tbdb3vzhuzmavk2jvv",
+        "handle": "mour0ne.bsky.social",
+        "displayName": "mour0ne",
+        "avatar": "https://cdn.bsky.app/img/avatar/plain/did:plc:xphzx6tbdb3vzhuzmavk2jvv/bafkreid25p5dj2w7f246sm4jyczhsvle26ovfj3zgg4w6ej6uwh45f6vxu",
+        "associated": {
+          "activitySubscription": {
+            "allowSubscriptions": "followers"
+          }
+        },
+        "labels": [],
+        "createdAt": "2026-06-15T09:26:44.166Z"
+      },
+      "record": {
+        "$type": "app.bsky.feed.post",
+        "createdAt": "2026-10-10T11:36:29.850Z",
+        "embed": {
+          "$type": "app.bsky.embed.video",
+          "aspectRatio": {
+            "height": 1080,
+            "width": 1920
+          },
+          "presentation": "default",
+          "video": {
+            "$type": "blob",
+            "ref": {
+              "$link": "bafkreiakakm4rqkvbrm7uollwuujybk3pr4ym7nystpl7sw5l5phe4dkfe"
+            },
+            "mimeType": "video/mp4",
+            "size": 6354740
+          }
+        },
+        "facets": [
+          {
+            "features": [
+              {
+                "$type": "app.bsky.richtext.facet#link",
+                "uri": "https://ps5xploit.github.io/relapse/"
+              }
+            ],
+            "index": {
+              "byteEnd": 92,
+              "byteStart": 64
+            }
+          },
+          {
+            "features": [
+              {
+                "$type": "app.bsky.richtext.facet#link",
+                "uri": "https://www.mediafire.com/file/d2wgjs0cycl0zci/mPS5XPLOIT-RELAPSE.pkg/file"
+              }
+            ],
+            "index": {
+              "byteEnd": 137,
+              "byteStart": 104
+            }
+          }
+        ],
+        "langs": [
+          "es"
+        ],
+        "text": "🟡 my HOST - PS5 ★ RELAPSE \n- 7.xx to 13.60 🟡\n\n🔆 URL: ps5xploit.github.io/relapse/\n\n🔗 PKG: www.mediafire.com/file/d2wgjs0...\n\n*The first time you need internet to save cache, then run offline DNS primary 127.0.0.2"
+      },
+      "embed": {
+        "cid": "bafkreiakakm4rqkvbrm7uollwuujybk3pr4ym7nystpl7sw5l5phe4dkfe",
+        "playlist": "https://video.bsky.app/watch/did%3Aplc%3Axphzx6tbdb3vzhuzmavk2jvv/bafkreiakakm4rqkvbrm7uollwuujybk3pr4ym7nystpl7sw5l5phe4dkfe/playlist.m3u8",
+        "thumbnail": "https://video.bsky.app/watch/did%3Aplc%3Axphzx6tbdb3vzhuzmavk2jvv/bafkreiakakm4rqkvbrm7uollwuujybk3pr4ym7nystpl7sw5l5phe4dkfe/thumbnail.jpg",
+        "aspectRatio": {
+          "height": 1080,
+          "width": 1920
+        },
+        "presentation": "default",
+        "$type": "app.bsky.embed.video#view"
+      },
+      "bookmarkCount": 5,
+      "replyCount": 0,
+      "repostCount": 2,
+      "likeCount": 13,
+      "quoteCount": 0,
+      "indexedAt": "2026-10-10T11:36:31.159Z",
+      "labels": [],
+      "threadgate": {
+        "uri": "at://did:plc:xphzx6tbdb3vzhuzmavk2jvv/app.bsky.feed.threadgate/3mxjfk5x2gk2h",
+        "cid": "bafyreiektxcemg53tpojupstuausbx4cu7qysffpdz7i46x7s7qeaudp3e",
+        "record": {
+          "$type": "app.bsky.feed.threadgate",
+          "allow": [],
+          "createdAt": "2026-10-10T12:21:02.335Z",
+          "hiddenReplies": [],
+          "post": "at://did:plc:xphzx6tbdb3vzhuzmavk2jvv/app.bsky.feed.post/3mxjfk5x2gk2h"
+        },
+        "lists": []
+      }
+    },
+    "threadContext": {},
+    "$type": "app.bsky.feed.defs#threadViewPost"
+  },
+  "threadgate": {
+    "uri": "at://did:plc:xphzx6tbdb3vzhuzmavk2jvv/app.bsky.feed.threadgate/3mxjfk5x2gk2h",
+    "cid": "bafyreiektxcemg53tpojupstuausbx4cu7qysffpdz7i46x7s7qeaudp3e",
+    "record": {
+      "$type": "app.bsky.feed.threadgate",
+      "allow": [],
+      "createdAt": "2026-10-10T12:21:02.335Z",
+      "hiddenReplies": [],
+      "post": "at://did:plc:xphzx6tbdb3vzhuzmavk2jvv/app.bsky.feed.post/3mxjfk5x2gk2h"
+    },
+    "lists": []
+  }
+}

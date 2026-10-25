@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PS5Expweb host diagnostics</title>
+<style>
+body { background:#111827; color:#e5e7eb; font:20px/1.5 sans-serif; max-width:960px; margin:40px auto; padding:24px; }
+button { font:inherit; margin:8px 12px 8px 0; padding:12px; cursor:pointer; }
+button:focus { outline:4px solid #60a5fa; }
+textarea { box-sizing:border-box; width:100%; height:420px; background:#030712; color:#d1fae5; font:16px/1.5 monospace; padding:16px; }
+#status { color:#93c5fd; }
+</style>
+<h1>Host diagnostics</h1>
+<p>Checks browser storage and required website files. This screen does not run console memory operations or payloads. File availability does not establish console stability.</p>
+<p id="status" role="status">Ready. Choose Run checks to begin.</p>
+<button id="run" type="button">Run checks</button>
+<button id="export" type="button">Export log</button>
+<button id="clear" type="button">Clear log</button>
+<label for="log">Diagnostic log (saved locally when storage is available)</label>
+<textarea id="log" readonly spellcheck="false"></textarea>
+<p id="storage" role="status"></p>
+<script src="./host.js"></script>
+</html>

@@ -1,0 +1,332 @@
+{
+  "path": "PS5Expweb-Relapse-13.60.pkg",
+  "sha256": "9ce3eb698da5e9a13787fa61ef108a50dd05d805914725fc1b5dfd23c12d4507",
+  "bytes": 21838614,
+  "Type": "FullDebug",
+  "Fih": {
+    "SignedByte": 0,
+    "IsOfficial": false,
+    "FormatVersion": 3,
+    "IsSupportedFormatVersion": true,
+    "PfsImageOffset": 65536,
+    "PfsImageSize": 655360,
+    "EmbeddedCntOffset": 720896
+  },
+  "Header": {
+    "Magic": "f0NOVA==",
+    "Flags": 131073,
+    "EntryCount": 17,
+    "ScEntryCount": 6,
+    "EntryTableOffset": 13664,
+    "BodyOffset": 8192,
+    "BodySize": 21094400,
+    "ContentId": "IV9999-LCLH13600_00-XXXXXXXXXXXXXXXX",
+    "DrmType": 0,
+    "ContentType": 32,
+    "ContentFlags": 33685504
+  },
+  "Entries": [
+    {
+      "Id": "Digests",
+      "RawId": 1,
+      "NameTableOffset": 0,
+      "Flags1": 1073741824,
+      "Flags2": 0,
+      "DataOffset": 14208,
+      "DataSize": 544,
+      "Name": null,
+      "KeyIndex": 0,
+      "Encrypted": false
+    },
+    {
+      "Id": "EntryKeys",
+      "RawId": 16,
+      "NameTableOffset": 0,
+      "Flags1": 1610612736,
+      "Flags2": 0,
+      "DataOffset": 8192,
+      "DataSize": 2944,
+      "Name": null,
+      "KeyIndex": 0,
+      "Encrypted": false
+    },
+    {
+      "Id": "ImageKey",
+      "RawId": 32,
+      "NameTableOffset": 0,
+      "Flags1": 1610612736,
+      "Flags2": 0,
+      "DataOffset": 11136,
+      "DataSize": 2048,
+      "Name": null,
+      "KeyIndex": 0,
+      "Encrypted": false
+    },
+    {
+      "Id": "GeneralDigests",
+      "RawId": 128,
+      "NameTableOffset": 0,
+      "Flags1": 1610612736,
+      "Flags2": 0,
+      "DataOffset": 13184,
+      "DataSize": 480,
+      "Name": null,
+      "KeyIndex": 0,
+      "Encrypted": false
+    },
+    {
+      "Id": "Metas",
+      "RawId": 256,
+      "NameTableOffset": 0,
+      "Flags1": 1610612736,
+      "Flags2": 0,
+      "DataOffset": 13664,
+      "DataSize": 544,
+      "Name": null,
+      "KeyIndex": 0,
+      "Encrypted": false
+    },
+    {
+      "Id": "EntryNames",
+      "RawId": 512,
+      "NameTableOffset": 0,
+      "Flags1": 1073741824,
+      "Flags2": 0,
+      "DataOffset": 14752,
+      "DataSize": 123,
+      "Name": null,
+      "KeyIndex": 0,
+      "Encrypted": false
+    },
+    {
+      "Id": "Imagedigs",
+      "RawId": 1034,
+      "NameTableOffset": 0,
+      "Flags1": 134217728,
+      "Flags2": 0,
+      "DataOffset": 16096,
+      "DataSize": 320,
+      "Name": null,
+      "KeyIndex": 0,
+      "Encrypted": false
+    },
+    {
+      "Id": "PlaygoChunkDat",
+      "RawId": 4097,
+      "NameTableOffset": 68,
+      "Flags1": 134217728,
+      "Flags2": 0,
+      "DataOffset": 16416,
+      "DataSize": 416,
+      "Name": "playgo-chunk.dat",
+      "KeyIndex": 0,
+      "Encrypted": false
+    },
+    {
+      "Id": "Unknown",
+      "RawId": 4102,
+      "NameTableOffset": 59,
+      "Flags1": 134217728,
+      "Flags2": 0,
+      "DataOffset": 2150832,
+      "DataSize": 2081251,
+      "Name": "pic1.png",
+      "KeyIndex": 0,
+      "Encrypted": false
+    },
+    {
+      "Id": "Icon0Png",
+      "RawId": 4608,
+      "NameTableOffset": 11,
+      "Flags1": 134217728,
+      "Flags2": 0,
+      "DataOffset": 16832,
+      "DataSize": 52734,
+      "Name": "icon0.png",
+      "KeyIndex": 0,
+      "Encrypted": false
+    },
+    {
+      "Id": "Pic0Png",
+      "RawId": 4640,
+      "NameTableOffset": 41,
+      "Flags1": 134217728,
+      "Flags2": 0,
+      "DataOffset": 69568,
+      "DataSize": 2081251,
+      "Name": "pic0.png",
+      "KeyIndex": 0,
+      "Encrypted": false
+    },
+    {
+      "Id": "Icon0Dds",
+      "RawId": 4736,
+      "NameTableOffset": 1,
+      "Flags1": 134217728,
+      "Flags2": 0,
+      "DataOffset": 4232096,
+      "DataSize": 262292,
+      "Name": "icon0.dds",
+      "KeyIndex": 0,
+      "Encrypted": false
+    },
+    {
+      "Id": "Pic0Dds",
+      "RawId": 4768,
+      "NameTableOffset": 32,
+      "Flags1": 134217728,
+      "Flags2": 0,
+      "DataOffset": 4494400,
+      "DataSize": 8294548,
+      "Name": "pic0.dds",
+      "KeyIndex": 0,
+      "Encrypted": false
+    },
+    {
+      "Id": "Pic1Dds",
+      "RawId": 4800,
+      "NameTableOffset": 50,
+      "Flags1": 134217728,
+      "Flags2": 0,
+      "DataOffset": 12788960,
+      "DataSize": 8294548,
+      "Name": "pic1.dds",
+      "KeyIndex": 0,
+      "Encrypted": false
+    },
+    {
+      "Id": "ParamJson",
+      "RawId": 8192,
+      "NameTableOffset": 21,
+      "Flags1": 0,
+      "Flags2": 0,
+      "DataOffset": 14880,
+      "DataSize": 1216,
+      "Name": "param.json",
+      "KeyIndex": 0,
+      "Encrypted": false
+    },
+    {
+      "Id": "PlaygoHashTable",
+      "RawId": 8208,
+      "NameTableOffset": 101,
+      "Flags1": 134217728,
+      "Flags2": 0,
+      "DataOffset": 21083520,
+      "DataSize": 80,
+      "Name": "playgo-hash-table.dat",
+      "KeyIndex": 0,
+      "Encrypted": false
+    },
+    {
+      "Id": "PlaygoFicm",
+      "RawId": 8209,
+      "NameTableOffset": 85,
+      "Flags1": 134217728,
+      "Flags2": 0,
+      "DataOffset": 21083600,
+      "DataSize": 22,
+      "Name": "playgo-ficm.dat",
+      "KeyIndex": 0,
+      "Encrypted": false
+    }
+  ],
+  "metadata": {
+    "param.json": {
+      "addcont": {
+        "serviceIdForSharing": [
+          "                   ",
+          "                   ",
+          "                   ",
+          "                   ",
+          "                   ",
+          "                   ",
+          "                   "
+        ]
+      },
+      "ageLevel": {
+        "US": 0,
+        "default": 0
+      },
+      "applicationCategoryType": 0,
+      "applicationDrmType": "free",
+      "attribute": 0,
+      "attribute2": 0,
+      "attribute3": 0,
+      "conceptId": "0",
+      "contentBadgeType": 2,
+      "contentId": "IV9999-LCLH13600_00-XXXXXXXXXXXXXXXX",
+      "contentVersion": "01.000.000",
+      "deeplinkUri": "https://patnawa.github.io/PS5Expweb/relapse/",
+      "displayLocation": 188,
+      "localizedParameters": {
+        "defaultLanguage": "en-US",
+        "en-US": {
+          "titleName": "PS5Expweb - Relapse 13.60"
+        }
+      },
+      "masterVersion": "01.00",
+      "requiredSystemSoftwareVersion": "0x0200000000000000",
+      "sdkVersion": "0x0200000000000000",
+      "titleId": "LCLH13600",
+      "versionFileUri": "                                                                                                                                                                                                                                                               "
+    }
+  },
+  "filesystem": [],
+  "filesystemError": null,
+  "structuralAcceptance": {
+    "Checks": [
+      {
+        "Name": "Finalized image",
+        "Status": "Pass",
+        "Detail": "Finalized debug image (signed byte 0x00)."
+      },
+      {
+        "Name": "FIH format version",
+        "Status": "Pass",
+        "Detail": "Version 3 (required: 3)."
+      },
+      {
+        "Name": "PFS image offset",
+        "Status": "Pass",
+        "Detail": "0x10000."
+      },
+      {
+        "Name": "PFS image present",
+        "Status": "Pass",
+        "Detail": "0xA0000 bytes."
+      },
+      {
+        "Name": "Embedded CNT",
+        "Status": "Pass",
+        "Detail": "17 entries, 6 system entries."
+      },
+      {
+        "Name": "EEKPFS key entry",
+        "Status": "Pass",
+        "Detail": "Image-key entry (0x20) present."
+      },
+      {
+        "Name": "Content-id",
+        "Status": "Pass",
+        "Detail": "IV9999-LCLH13600_00-XXXXXXXXXXXXXXXX"
+      },
+      {
+        "Name": "Content-info",
+        "Status": "Pass",
+        "Detail": "title-id=LCLH13600, drm_type=0x0, content_type=0x20, content_flags=0x02020000, patch=None, nested=True."
+      }
+    ],
+    "Accepted": true,
+    "HasWarnings": false
+  },
+  "nativeLaunchReady": false,
+  "warnings": [
+    "Module 'eboot.bin' is not a raw ELF; the build's fake-sign step expects an ELF module.",
+    "Module fake-signing was enabled but no raw ELF modules were found to convert.",
+    "FIH game-digest (0x30/0x70/0xD0) is SHA3-256 of the plaintext outer superblock; the superblock offset/size are recorded at 0x20/0x28. The CNT package-digest (CNT+0xFE0), content/header/system/param/playgo GeneralDigests and the per-entry digest table are SHA3-256 of the plaintext CNT regions and entries. The FIH 0xB0 slot holds the nested-image-content digest: SHA3-256 of the uncompressed inner PFS image when the builder threads it in, otherwise a fallback SHA3-256 of the outer image.",
+    "The finalized image carries a valid embedded CNT and PFS image: the game-digest (0x30/0x70/0xD0) is SHA3-256 of the plaintext outer superblock, the CNT package-digest self-seal sits at CNT+0xFE0, and the GeneralDigests block (content/header/system/param/playgo/target) plus the per-entry digest table are SHA3-256 of the plaintext CNT regions and entries. The FIH 0xB0 slot holds the nested-image-content digest from the build pass: SHA3-256 of the uncompressed inner PFS image at its plain size. The image targets debug-mode consoles."
+  ],
+  "consoleTested": false,
+  "limitation": "Structural validation does not verify console acceptance or native execution. Empty eboot shortcut behavior requires console testing."
+}
