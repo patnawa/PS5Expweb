@@ -7,7 +7,7 @@ import unittest
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 
-from serve import RelapseHandler, snapshot_files, verify_snapshot
+from serve import ROOT, RelapseHandler, snapshot_files, verify_snapshot
 
 
 class QuietHandler(RelapseHandler):
@@ -148,7 +148,12 @@ class StagedHostTests(unittest.TestCase):
         status, headers, body = self.request("/relapse/cache.appcache")
         self.assertEqual(status, 200)
         self.assertEqual(headers["Content-Type"], "text/cache-manifest")
-        self.assertIn(b"pldmgr-0.6.3", body)
+        # The manifest must be served byte-identical to the source manifest:
+        # any drift here and consoles would cache a tree the site no longer
+        # ships. Its version line changes with every fix, so assert on the
+        # structure, not on a specific version tag.
+        self.assertEqual(body, (ROOT / "relapse-stable/cache3.appcache3").read_bytes())
+        self.assertTrue(body.startswith(b"CACHE MANIFEST"))
 
         status, headers, _ = self.request("/relapse/payloads/pldmgr.elf", "HEAD")
         self.assertEqual(status, 200)

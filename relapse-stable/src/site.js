@@ -89,14 +89,37 @@ function cstage(name, detail) {
   } catch (e) {}
 }
 
-const BUILD = "2026-10-26d memory-guard";
+const BUILD = "2026-10-26e net-payloads";
+
+// Payload revision key for fetchBinary's cache-buster. Bump whenever the
+// shipped ELFs change so consoles never reuse an HTTP-cached old payload.
+window.__payloadRev = "kstuff-1.11-pldmgr-0.6.3-elfldr-1360";
 
 async function run() {
+  cstage("site:run");
+  writeLog("Build: " + BUILD, "info");
+  // Never start a chain while an appcache update is in flight. While an update
+  // downloads, AppCache serves the OLD copy of every listed file, so a chain
+  // that starts mid-update would run stale code while the network already has
+  // the fix -- the exact second-boot crash pattern. Wait for the cache to
+  // settle first; if an update landed, the page reloads itself (safe while
+  // idle) and this run never continues on stale code.
+  cstage("site:cache-settle");
+  let settle = "unsupported";
+  try {
+    if (typeof window.__appcacheSettled === "function") {
+      settle = await window.__appcacheSettled();
+    }
+  } catch (e) {
+    settle = "error";
+  }
+  if (settle === "updated") writeLog("AppCache updated before run", "info");
+  else if (settle === "timeout") writeLog("AppCache check timed out; continuing", "warn");
+  else if (settle === "error") writeLog("AppCache check failed; continuing", "warn");
+
   // Tell the cache handler a chain is live: a reload from here on would re-run
   // the exploit against an already-patched kernel and panic the console.
   window.__exploitRunning = true;
-  cstage("site:run");
-  writeLog("Build: " + BUILD, "info");
   const rejection = window.firmware.rejection();
   if (rejection)
     throw new Error(rejection);

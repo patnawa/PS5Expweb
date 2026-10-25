@@ -256,7 +256,14 @@ function resolveSymbols(p, log) {
 // XMLHttpRequest sí. Usamos XHR con responseType="arraybuffer".
 // Cuando el fichero viene de la appcache, xhr.status es 0, no 200.
 function fetchBinary(config, name) {
-  const url = ((config && config.payloadUrl) || "payloads/") + name;
+  // Payloads are intentionally NOT in the appcache manifest: while an update
+  // downloads, AppCache serves the old copy of every listed file, which is how
+  // a console could re-run a payload the network had already replaced. With
+  // them off the manifest this XHR always goes to the network. GitHub Pages
+  // HTTP-caches for 10 minutes, so the revision key busts that window too:
+  // bump window.__payloadRev (site.js) whenever the shipped payloads change.
+  const rev = typeof window.__payloadRev === "string" ? window.__payloadRev : "";
+  const url = ((config && config.payloadUrl) || "payloads/") + name + (rev ? "?rv=" + rev : "");
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("GET", url, true);

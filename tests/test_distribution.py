@@ -74,10 +74,21 @@ class DistributionTests(unittest.TestCase):
             handler = (relapse / "appcache_handler.js").read_bytes()
             self.assertIn(b"__exploitRunning", handler)
             self.assertIn(b"__exploitDone", handler)
-            self.assertIn(b"__exploitRunning", (relapse / "src/site.js").read_bytes())
+            self.assertIn(b"__appcacheSettled", handler)
+            site = (relapse / "src/site.js").read_bytes()
+            self.assertIn(b"__exploitRunning", site)
+            self.assertIn(b"__appcacheSettled", site)
             manifest = (relapse / "cache.appcache").read_bytes()
             self.assertIn(b"appcache_handler.js", manifest)
             self.assertIn(b"src/site.js", manifest)
+            # Payload ELFs must NOT be cached: AppCache serves the old copy of
+            # a listed file while an update downloads, so a chain that starts
+            # mid-update would run stale payloads -- the second-boot crash.
+            # With them out of the manifest, fetch() always hits the network.
+            self.assertNotIn(b"payloads/kstuff.elf", manifest)
+            self.assertNotIn(b"payloads/pldmgr.elf", manifest)
+            self.assertNotIn(b"payloads/shadowmountplus.elf", manifest)
+            self.assertNotIn(b"payloads/elfldr-ps5-1360.elf", manifest)
 
 
 if __name__ == "__main__":
