@@ -7,6 +7,14 @@ No PS5 console, crash dump, or exact failing stage was available to this
 workspace. The findings below separate reproduced source defects from the
 unresolved cause of that system freeze.
 
+> **Status update 2026-10-26:** the defects below were fixed in
+> `relapse-stable/`, and the "unresolved" freeze now has a ranked, evidence-
+> backed cause chain with the second-boot crash pinned to stale payload
+> delivery through the AppCache. See
+> [2026-10-26 resolution and current state](#2026-10-26-resolution-and-current-state)
+> at the end of this document. The publication pause described in
+> "Decision before publication" is superseded: Pages is live.
+
 The same console completed Y2JB successfully in 10/10 user-run trials,
 including reboot and shutdown, without a crash. This is useful comparative
 runtime evidence. It narrows the problem to behavior that differs between the
@@ -140,3 +148,114 @@ freeze, kernel-stage failure, and post-exploit shutdown issue.
 The exact 13.60 freeze remains unresolved until a console reproduction or
 crash artifact supplies a red-capable loop. No Y2JB code was copied into the
 web host and no console exploit was executed during this investigation.
+
+## 2026-10-26 resolution and current state
+
+Every defect in "Confirmed defects in this snapshot" is fixed in
+`relapse-stable/`, the hardened tree staged to Pages by
+`tools/stage_stable.py` (the pinned `relapse/` snapshot stays untouched and
+its snapshot hashes still verify). Three further root causes for the reported
+"works the first time, crashes the console after a reboot" pattern were found
+while hardening it; each is documented here with its evidence so the next
+session does not re-derive them.
+
+### Cause 1 — dev/test payload shipped to production
+
+The shipped `kstuff.elf` was `1.13-fpkg-dr-test5` (1,802,280 bytes) whose own
+embedded strings warn `[ppr-patch] firmware 12+ support is not present in
+this build`. Replaced with official EchoStretch/kstuff-lite **v1.11**
+(1,737,080 bytes, SHA-256
+`ab9a6cb4d3b1daf139d4d646e402b1cf569071acd64599c936d7a3a6164dc779`,
+advertised 1.00–13.60) and Payload Manager **v0.6.3**. The loader now sends
+only `pldmgr.elf`; the manager installs and loads kstuff/shadowmountplus
+itself, mirroring Y2JB v1.0.3's handoff.
+
+### Cause 2 — stacked heap-groom sprays and a redundant teardown sweep
+
+`webkit.js` groomed ~40 MiB per attempt (512 × 64 KiB keepAlive spray plus a
+4 MiB slab and holes) and retried up to 8 times with a **50 ms** unsafe-retry
+delay — faster than the engine could collect, so failed attempts stacked and
+produced the console's visible *"not enough system memory"* warning. When the
+OS then killed the webview mid-chain, the armed AIO groups and crossed pipes
+had no process left to defuse them: kernel panic on the next boot.
+Independently, `relapse_exploit.js` ran `rescue()` from a `finally` block even
+after a clean run had already restored and verified every hijacked structure,
+re-sweeping kernel memory five more times at the most fragile moment.
+
+Fixes (commit `700508a`): `MAX_ATTEMPTS = 4`, safe retry 750→900 ms, unsafe
+retry 50→1200 ms, unsafe retries clear the pointer spray and drop the big
+cached references while deliberately keeping the buffers the corrupted clone
+may still point at, and `rescue()` now runs only when the run did not finish
+its own teardown (`this.teardownClean`).
+
+### Cause 3 — stale payload delivery through the AppCache (the second-boot mechanism)
+
+Payload delivery uses `XMLHttpRequest`, which in this WebKit **is**
+intercepted by the AppCache — `fetch()` is not; see the `[OFFLINE FIX]`
+comment in `kexp.js`. The payload ELFs were listed in the appcache manifest,
+so while an update downloaded, AppCache served the **old** copy of every
+listed file to the running chain. Because the exploit auto-runs on page load,
+the chain was already armed when `updateready` fired and the idle-only reload
+handler could not act. A console that had cached the v1.13 era therefore kept
+re-running the chain against stale payloads across reboots — the exact
+"fine first time, crash after reboot" signature — and could stay trapped in
+the loop because the ~7 MB update kept losing the race against the crash.
+
+Fixes (commit `174ed93`): payload ELFs removed from the manifest (`NETWORK: *`
+routes their XHRs to the network and the update evicts the old copies, and the
+manifest update shrinks from ~7 MB to ~500 KB so convergence beats the crash);
+`site.js` awaits `__appcacheSettled()` before starting the chain — it waits
+out CHECKING/DOWNLOADING, swaps and reloads on `updateready` (safe, nothing
+armed yet), and resolves `current`/`error`/`timeout` otherwise with a 20 s
+bound; `fetchBinary` keys its URL on `window.__payloadRev`, busting GitHub
+Pages' 10-minute HTTP cache so a minutes-old payload bump is never reused.
+
+Earlier guard commits in the same chain: `7da258c` (refuse to re-arm a kernel
+that is already patched — uid/sandbox check plus an elfldr probe on
+127.0.0.1:9021), `2b2b495` (swap + reload the cache only while idle; never
+after a chain started or finished), `fe1eb59` (on-screen build stamp).
+
+### Trade-off accepted
+
+With payloads off the manifest, an offline run can no longer deliver payloads.
+This is acceptable: loading the page at all required the network, and the
+kernel-base leak requires a configured interface regardless (same LAN
+prerequisite Y2JB documents).
+
+### Verification state
+
+- Tests: 14 Python + 3 Node pass; CI green on every push; staged build
+  verified with the same invariants before each deploy.
+- Live: `https://patnawa.github.io/PS5Expweb/relapse/`, build stamp
+  `2026-10-26e net-payloads`, manifest `# version 2026-10-26e net-payloads #`
+  with zero payload entries, kstuff served over the network at 1,737,080
+  bytes / SHA-256 prefix `ab9a6cb4…`.
+- Regression tests added: `test_distribution.py::
+  test_staged_stable_tree_ships_second_boot_guard` (guard code present,
+  payloads absent from the manifest, gate present in both files, manifest
+  byte-identical to source) and `test_host.py::
+  test_staged_manifest_and_payload_are_served` (manifest byte-identical,
+  payloads still served). Version-tag assertions were replaced with
+  structural ones so future bumps do not break the suite.
+
+### Console verification protocol (next session)
+
+The pkg is a deeplink only and never needs reinstalling for site-side fixes.
+On the console:
+
+1. Launch the shortcut; the first launch performs the small update and
+   reloads itself.
+2. Confirm the log line `Build: 2026-10-26e net-payloads`. No build line means
+   a stale cache — relaunch once; if still missing, clear the app's cache.
+3. Run one cycle. With the build line visible, the stale-payload path is
+   excluded by construction; the CrashLog red banner's last stage (persisted
+   in `localStorage` across reboots) then names the failing stage and the
+   remaining suspects are few.
+
+### Open items
+
+- Hardware confirmation of the full fix chain (no console access in this
+  workspace; `consoleTested` remains false for the built pkgs).
+- App icon change (requires a pkg rebuild — the icon lives in the package).
+- Jailbreak running-status UI overhaul (deferred by the user until after the
+  bug fix).
