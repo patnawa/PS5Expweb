@@ -1,5 +1,5 @@
 CACHE MANIFEST
-# version 2026-10-26c pldmgr-0.6.3 kstuff-1.11 cache-guard #
+# version 2026-10-26d pldmgr-0.6.3 kstuff-1.11 memory-guard #
 
 appcache_handler.js
 custom_host_stuff.js

