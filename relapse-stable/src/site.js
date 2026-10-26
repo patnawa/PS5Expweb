@@ -95,9 +95,56 @@ const BUILD = "2026-10-26e net-payloads";
 // shipped ELFs change so consoles never reuse an HTTP-cached old payload.
 window.__payloadRev = "kstuff-1.11-pldmgr-0.6.3-elfldr-1360";
 
+// ------------------------------------------------------------
+// CACHE REPORT: what the appcache actually did this run. A stale cache leaves
+// almost no trace -- the only symptom is a missing build stamp, which cannot
+// tell "old code" from "old payload" from "cache never engaged at all". This
+// records the status the chain started under so the crash log can name it.
+// ------------------------------------------------------------
+const CACHE_STATUS_NAMES = [
+  "UNCACHED",
+  "IDLE",
+  "CHECKING",
+  "DOWNLOADING",
+  "UPDATEREADY",
+  "OBSOLETE",
+];
+
+function cacheReport(settle) {
+  const ac = window.applicationCache;
+  return {
+    build: BUILD,
+    href: String(location.href),
+    origin: String(location.origin || ""),
+    manifest: document.documentElement.getAttribute("manifest") || null,
+    supported: !!ac,
+    status: ac ? ac.status : null,
+    statusName: ac ? CACHE_STATUS_NAMES[ac.status] || String(ac.status) : "unsupported",
+    online: typeof navigator.onLine === "boolean" ? navigator.onLine : null,
+    settle: settle || null,
+    payloadRev: window.__payloadRev || null,
+  };
+}
+
+window.__cacheReport = cacheReport;
+
+function cacheSummary(report) {
+  return (
+    "status=" + report.statusName +
+    " supported=" + report.supported +
+    " manifest=" + report.manifest +
+    " origin=" + report.origin +
+    " settle=" + (report.settle || "n/a")
+  );
+}
+
 async function run() {
   cstage("site:run");
   writeLog("Build: " + BUILD, "info");
+  // Status before the settle wait. On a stale-cache console this already reads
+  // UPDATEREADY/DOWNLOADING; on a cache that never engaged it reads UNCACHED.
+  const initialCache = cacheReport();
+  writeLog("Cache at start: " + cacheSummary(initialCache), "info");
   // Never start a chain while an appcache update is in flight. While an update
   // downloads, AppCache serves the OLD copy of every listed file, so a chain
   // that starts mid-update would run stale code while the network already has
@@ -116,6 +163,17 @@ async function run() {
   if (settle === "updated") writeLog("AppCache updated before run", "info");
   else if (settle === "timeout") writeLog("AppCache check timed out; continuing", "warn");
   else if (settle === "error") writeLog("AppCache check failed; continuing", "warn");
+
+  // Settled status: this is the state the chain actually starts under. Store
+  // the structured report in the crash log so a freeze names the cache state
+  // instead of leaving "missing build stamp" as the only clue.
+  const settledCache = cacheReport(settle);
+  try {
+    if (window.CrashLog && typeof window.CrashLog.cache === "function")
+      window.CrashLog.cache(settledCache);
+  } catch (e) {}
+  writeLog("Cache settled: " + cacheSummary(settledCache), "info");
+  cstage("site:cache-status", settledCache.statusName + "/" + (settle || "n/a"));
 
   // Tell the cache handler a chain is live: a reload from here on would re-run
   // the exploit against an already-patched kernel and panic the console.

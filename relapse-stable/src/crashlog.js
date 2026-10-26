@@ -62,6 +62,7 @@
           ms: session.heartbeatMs,
           iso: session.heartbeatIso,
           open: session.open,
+          cache: session.cache || null,
         }),
       );
       storageOk = true;
@@ -140,6 +141,16 @@
       saveHeartbeat();
     },
 
+    /* Record the appcache state the chain started under. Written once, after
+       the settle wait, so a freeze leaves "cache=UPDATEREADY/DOWNLOADING" next
+       to the last stage instead of an unexplained missing build stamp. */
+    cache: function (info) {
+      if (!session) return;
+      session.cache = info;
+      save();
+      saveHeartbeat();
+    },
+
     finish: function (status, detail) {
       if (!session) return;
       append("FINISH " + status + (detail ? ": " + detail : ""), "done");
@@ -189,6 +200,15 @@
         );
         out.push("started=" + s.startIso + " ua=" + (s.meta && s.meta.ua ? s.meta.ua : "?") +
           " fw=" + (s.meta && s.meta.fw ? s.meta.fw : "?"));
+        if (s.cache) {
+          out.push(
+            "cache=" + (s.cache.statusName || "?") +
+            " supported=" + s.cache.supported +
+            " manifest=" + s.cache.manifest +
+            " settle=" + (s.cache.settle || "n/a") +
+            " online=" + s.cache.online,
+          );
+        }
         if (s.endMs != null) out.push("endedMs=" + Math.round(s.endMs));
       }
       out.push("---");
@@ -219,6 +239,7 @@
             s.heartbeatIso = hb.iso;
             s.lastStage = hb.lastStage || s.lastStage;
             s.open = hb.open === true;
+            if (hb.cache) s.cache = hb.cache;
           }
         }
       } catch (e) {

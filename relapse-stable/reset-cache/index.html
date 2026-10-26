@@ -1,0 +1,62 @@
+<!doctype html>
+<html manifest="reset.appcache">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PS5Expweb cache reset</title>
+<style>
+  body { background:#111; color:#ddd; font:14px/1.5 monospace; margin:0; padding:18px; }
+  h1 { font-size:18px; color:#7fd; margin:0 0 12px; }
+  p { margin:0 0 10px; max-width:52em; }
+  code { color:#fd7; }
+  .warn { color:#f99; }
+  a { color:#8cf; }
+  #state { margin-top:14px; color:#9c9; }
+</style>
+</head>
+<body>
+<h1>PS5Expweb cache reset</h1>
+
+<p>This page declares <code>manifest="reset.appcache"</code>, and that file is
+deliberately absent. The browser therefore marks this origin's Application
+Cache <b>obsolete</b> and deletes it. Nothing here executes the exploit.</p>
+
+<p class="warn">Only open this while the exploit is idle &mdash; before a run or
+after a reboot. Navigating away from a chain that is already armed can panic
+the console.</p>
+
+<p>After the cache clears, reopen <a href="../">/relapse/</a> to download a fresh
+copy. The first load after a reset is always from the network.</p>
+
+<p id="state">checking&hellip;</p>
+
+<script>
+(function () {
+  var out = document.getElementById("state");
+  var ac = window.applicationCache;
+  function name(status) {
+    var names = ["UNCACHED", "IDLE", "CHECKING", "DOWNLOADING", "UPDATEREADY", "OBSOLETE"];
+    return names[status] || String(status);
+  }
+  function show(text) {
+    if (out) out.textContent = text;
+  }
+  if (!ac) {
+    show("Application Cache is not supported in this webview. Use the console's app data deletion instead.");
+    return;
+  }
+  show("cache status: " + name(ac.status) + " \u2014 waiting for the obsolete event\u2026");
+  ac.addEventListener("obsolete", function () {
+    show("cache deleted (OBSOLETE). Reopen /relapse/ to download a fresh copy.");
+  }, false);
+  ac.addEventListener("error", function () {
+    // A missing manifest is the expected path: it produces error, then obsolete.
+    show("cache status: " + name(ac.status) + " (missing manifest seen; waiting for obsolete\u2026)");
+  }, false);
+  ac.addEventListener("noupdate", function () {
+    show("no cache update; status: " + name(ac.status));
+  }, false);
+})();
+</script>
+</body>
+</html>

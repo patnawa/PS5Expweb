@@ -252,6 +252,21 @@ On the console:
    in `localStorage` across reboots) then names the failing stage and the
    remaining suspects are few.
 
+The log now also records the cache state the chain started under
+(`Cache at start: status=…`, `Cache settled: status=…`), and the same fields
+are persisted in the crash record as `cache=… supported=… manifest=… settle=…`.
+This settles the open question about whether the AppCache engaged at all on a
+given console: `UNCACHED` means the manifest was never applied (the upstream
+Pages host serves it as `application/octet-stream`, which a spec-compliant
+browser rejects), while `UPDATEREADY`/`DOWNLOADING` at start means the chain
+began mid-update and could have been served stale code.
+
+To clear a stuck cache while idle, open `/relapse/reset-cache/` on the host: its
+manifest is intentionally missing, so the browser deletes the origin's cache;
+reopen `/relapse/` afterwards. On the installed pkg the deeplink URL is fixed,
+so deleting the app's saved data or reinstalling is the equivalent client-side
+clear.
+
 ### Upstream re-inspection 2026-10-26
 
 The deployed host at `https://ps5xploit.github.io/relapse/` was re-fetched file

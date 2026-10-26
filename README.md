@@ -72,6 +72,27 @@ python serve.py --snapshot
 To serve a prebuilt Pages tree without staging it again, use
 `python serve.py --staged --staged-dir build/pages-stable`.
 
+### Clearing a stuck cache from the client
+
+Application Cache is **per origin**, so a query string (`?v=2`) does not create a
+fresh cache. A console stuck on stale code needs one of these:
+
+1. **Console UI (works for the installed shortcut).** Delete the shortcut app's
+   saved data, or reinstall the pkg. The cache lives in the app's data, so this
+   is the only reliable client-side clear when the pkg opens a fixed URL.
+2. **New origin (local server).** Change the port or LAN IP
+   (`python serve.py --port 8000`). A different origin starts with an empty
+   cache; nothing stale can be served.
+3. **Reset page (host-served).** Open `/relapse/reset-cache/` while the exploit
+   is idle. Its manifest is intentionally missing, so the browser deletes the
+   origin's cache; then reopen `/relapse/` to re-cache from the network.
+   The same URL works on Pages:
+   `https://patnawa.github.io/PS5Expweb/relapse/reset-cache/`.
+
+Never reset or navigate away while a chain is running — an armed chain loses its
+webview and can panic the kernel. After a freeze: power-cycle, relaunch once,
+read the red banner, then reset if the build stamp is still missing.
+
 ### Crash diagnostics
 
 The hardened host arms a durable crash log before the exploit starts. If the
