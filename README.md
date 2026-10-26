@@ -123,7 +123,7 @@ If a launch shows "Download cache..." and then hangs:
    Data → Delete → select the app) or delete and reinstall the pkg. This removes
    the half-finished cache update.
 3. Launch once. It loads from the network, downloads the cache, waits for it to
-   settle, then runs. Expect `Build: 2026-10-26l failcheck` and a
+   settle, then runs. Expect `Build: 2026-10-26m controller-ui` and a
    `Cache at start:` line.
 
 If the console still will not boot or restart cleanly, use Safe Mode (hold power
@@ -138,7 +138,7 @@ how long the run stayed alive, and the last log line. **Copy log** exports the
 full record. The same lines are mirrored to `localStorage`, so they survive the
 process death that kills the on-screen log.
 
-Confirm the build stamp `Build: 2026-10-26l failcheck` appears in the log. If
+Confirm the build stamp `Build: 2026-10-26m controller-ui` appears in the log. If
 it is missing, the console is running a stale cache; relaunch once and, if it
 persists, clear the app's cache. Payloads are served over the network, so the
 console needs network access to this host when the chain reaches the payload

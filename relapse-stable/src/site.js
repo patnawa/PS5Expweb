@@ -89,7 +89,131 @@ function cstage(name, detail) {
   } catch (e) {}
 }
 
-const BUILD = "2026-10-26l failcheck";
+const BUILD = "2026-10-26m controller-ui";
+
+// ---- PS5 UI status wiring -------------------------------------------------
+// The new screen shows the kernel exploit stage in a floating card instead of
+// relying on the log drawer. Every cstage() call funnels through
+// window.CrashLog.stage, so wrapping it here catches stages reported from
+// site.js, main.js and relapse_exploit.js without touching those files.
+const STAGE_LABELS = {
+  "site:run": "Starting exploit",
+  "site:cache-settle": "Checking cache",
+  "site:cache-status": "Cache ready",
+  "site:webkit": "WebKit exploit",
+  "site:arw-ready": "Memory primitive ready",
+  "site:kernel-exploit": "Kernel exploit",
+  "site:done": "Complete",
+  "main:prepare-rop": "Preparing ROP chain",
+  "main:rop-ready": "ROP chain ready",
+  "main:kernel-exploit": "Running kernel exploit",
+  "main:kernel-result": "Kernel result",
+  "main:payloads": "Loading payloads",
+  "main:payloads-done": "Payloads loaded",
+  "main:done": "Complete",
+  "kexploit:leak-kbase": "Leaking kernel base",
+  "kexploit:pin-core": "Pinning core",
+  "kexploit:escalate": "Escalating",
+  "kexploit:arm-aio": "Arming AIO",
+  "kexploit:teardown": "Teardown",
+  "FAILCHECK": "Previous run did not finish",
+  "main:payloads-error": "Payload load failed",
+  "main:payloads-partial": "Some payloads failed",
+};
+
+const STAGE_PROGRESS = {
+  "site:run": 2,
+  "site:cache-settle": 5,
+  "site:cache-status": 8,
+  "site:webkit": 12,
+  "site:arw-ready": 20,
+  "site:kernel-exploit": 25,
+  "main:prepare-rop": 30,
+  "main:rop-ready": 35,
+  "main:kernel-exploit": 40,
+  "kexploit:leak-kbase": 45,
+  "kexploit:pin-core": 50,
+  "kexploit:escalate": 60,
+  "kexploit:arm-aio": 70,
+  "kexploit:teardown": 80,
+  "main:payloads": 85,
+  "main:payloads-done": 92,
+  "main:done": 98,
+  "site:done": 100,
+  "FAILCHECK": 0,
+  "main:payloads-error": 0,
+  "main:payloads-partial": 85,
+};
+
+function setStatusText(text, cls) {
+  const el = document.getElementById("exploit-status");
+  if (!el) return;
+  el.textContent = text;
+  el.className = cls || "";
+}
+
+function setStatusDetail(text) {
+  const el = document.getElementById("exploit-detail");
+  if (el) el.textContent = text || "";
+}
+
+function setProgress(pct) {
+  const el = document.getElementById("progress-fill");
+  if (el) el.style.width = Math.max(0, Math.min(100, pct)) + "%";
+}
+
+function updateStatusUI(name, detail) {
+  const key = String(name || "");
+  const label = STAGE_LABELS[key] || key;
+  const pct = STAGE_PROGRESS[key];
+  if (pct !== undefined) setProgress(pct);
+  let cls = "is-running";
+  if (key === "site:done" || key === "main:done") cls = "is-ok";
+  else if (key === "FAILCHECK" || key === "main:payloads-error") cls = "is-err";
+  else if (key === "main:payloads-partial") cls = "is-warn";
+  setStatusText(label, cls);
+  setStatusDetail(detail || "");
+}
+
+function setFinalStatus(ok, detail) {
+  setStatusText(ok ? "Exploit complete" : "Exploit failed", ok ? "is-ok" : "is-err");
+  setStatusDetail(detail || "");
+  setProgress(ok ? 100 : 0);
+}
+
+window.updateStatusUI = updateStatusUI;
+
+// Wrap CrashLog.stage/finish so every cstage call updates the card.
+try {
+  const CL = window.CrashLog;
+  if (CL && typeof CL.stage === "function") {
+    const origStage = CL.stage.bind(CL);
+    CL.stage = function (name, detail) {
+      try { origStage(name, detail); } catch (e) {}
+      try { updateStatusUI(name, detail); } catch (e) {}
+    };
+  }
+  if (CL && typeof CL.finish === "function") {
+    const origFinish = CL.finish.bind(CL);
+    CL.finish = function (status, detail) {
+      try { origFinish(status, detail); } catch (e) {}
+      try { setFinalStatus(String(status || "").toLowerCase() === "ok", detail); } catch (e) {}
+    };
+  }
+} catch (e) {}
+
+// Set the build stamp immediately, and keep the log drawer toggle working.
+try {
+  const stamp = document.getElementById("build-stamp");
+  if (stamp) stamp.textContent = "build: " + BUILD;
+  const toggle = document.getElementById("console-toggle");
+  if (toggle) {
+    toggle.addEventListener("click", function () {
+      document.body.classList.toggle("log-hidden");
+      toggle.textContent = document.body.classList.contains("log-hidden") ? "Show logs" : "Logs";
+    });
+  }
+} catch (e) {}
 
 // Payload revision key for fetchBinary's cache-buster. Bump whenever the
 // shipped ELFs change so consoles never reuse an HTTP-cached old payload.

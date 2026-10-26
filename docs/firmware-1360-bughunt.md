@@ -232,7 +232,7 @@ prerequisite Y2JB documents).
 - Tests: 14 Python + 3 Node pass; CI green on every push; staged build
   verified with the same invariants before each deploy.
 - Live: `https://patnawa.github.io/PS5Expweb/relapse/`, build stamp
-  `2026-10-26l failcheck`, manifest `# version 2026-10-26l failcheck #`
+  `2026-10-26m controller-ui`, manifest `# version 2026-10-26m controller-ui #`
   with zero payload and zero GIF entries, kstuff served over the network at
   1,737,080 bytes / SHA-256 prefix `ab9a6cb4…`.
 - Regression tests added: `test_distribution.py::
@@ -250,7 +250,7 @@ On the console:
 
 1. Launch the shortcut; the first launch performs the small update and
    reloads itself.
-2. Confirm the log line `Build: 2026-10-26l failcheck`. No build line means
+2. Confirm the log line `Build: 2026-10-26m controller-ui`. No build line means
    a stale cache — relaunch once; if still missing, clear the app's cache.
 3. Run one cycle. With the build line visible, the stale-payload path is
    excluded by construction; the CrashLog red banner's last stage (persisted
@@ -479,7 +479,7 @@ handoff, not the escalation. Three defects in the handoff path explain it.
 
 Recovery for a console already stuck: hold the power button ~15 s, unplug ~30 s,
 boot, delete the app's saved data (or reinstall the pkg) to drop the half-finished
-cache update, then launch once and confirm `Build: 2026-10-26l failcheck` in the
+cache update, then launch once and confirm `Build: 2026-10-26m controller-ui` in the
 log before running a cycle. The build stamp is the only reliable signal that the
 new manifest — and therefore the small update — is actually in effect.
 
@@ -649,6 +649,56 @@ nothing to rescue.
 asserts the syscall number, the marker path, the guard-before-arm ordering, the
 `teardownClean = true` early returns, and the reboot instruction in `main.js`.
 
+### "Show me the controller and the status" — the screen rebuild (2026-10-26m)
+
+The old screen was a 420 KB `index.html`: a base64 JPEG backdrop on a fixed
+dark page, a monospace console pinned at 27%/25%, two loading GIFs, a special-
+thanks block and a website credit. Everything the user looked at while the
+chain ran was log text in the middle of a photo.
+
+The rebuild replaces that with a macro shot of a PS5 controller and a floating
+status card. No image generation was used: the 410 KB base64 JPEG is gone and
+the controller is an inline SVG (`viewBox="0 0 900 620"`), so the page is
+10.9 KB instead of 420 KB and stays crisp at any zoom. The "zoom closeup" is
+CSS: `transform: scale(2.35)` with a 14 s `drift` animation that pushes the
+scale to 2.42 and sways it a degree either way. The SVG carries the shell
+gradient, black deck, touchpad, light bar, both sticks, d-pad, face buttons,
+create/options and the PS button — all styleable, none of it a network fetch.
+
+The status card (`#status-card`) sits centered over the controller with a
+backdrop blur. Its contents:
+
+- `#status-eyebrow` — "Kernel Exploit Status"
+- `#exploit-status` — the current stage as a label, colour-coded
+- `#exploit-detail` — the raw stage detail (e.g. `webkit=0x...`)
+- `#progress-fill` — a 0–100 % rail driven by the stage map
+- `#build-stamp` — the build id, set from `BUILD` on module load
+
+The wiring lives in `relapse-stable/src/site.js`. Every `cstage()` call in
+`site.js`, `main.js` and `relapse_exploit.js` funnels through
+`window.CrashLog.stage`, so the module wraps that one function instead of
+editing three files:
+
+- `STAGE_LABELS` maps `site:run`, `site:cache-settle`, `site:webkit`,
+  `site:arw-ready`, `site:kernel-exploit`, `main:payloads`, `kexploit:*`,
+  `FAILCHECK` and the payload-error stages to human labels.
+- `STAGE_PROGRESS` maps the same keys to rail percentages; unknown stages keep
+  the previous percentage rather than jumping to zero.
+- `CrashLog.stage` is wrapped to call `updateStatusUI(name, detail)` after the
+  original persists the stage. `CrashLog.finish` is wrapped to set the final
+  "Exploit complete" / "Exploit failed" text and pin the rail to 100 or 0.
+- The log drawer keeps the full `writeLog` history, demoted to a bottom 30 vh
+  panel with a "Logs" toggle. `body.log-hidden` hides it and the toggle moves
+  to the corner.
+- The build stamp is written to `#build-stamp` immediately, so a cached console
+  shows the running build before the first stage lands.
+
+The old loading GIFs and the special-thanks block are gone with the rest of the
+old style; `index.html.old-bg-backup` keeps the previous page for reference.
+The toast container survives and its `.toast` styling was restyled to the new
+palette. The crash banner (`#crashlog-banner`) keeps its function and gets the
+same rounded, blurred treatment.
+
 ### Open items
 
 - Hardware confirmation of the full fix chain (no console access in this
@@ -661,5 +711,6 @@ asserts the syscall number, the marker path, the guard-before-arm ordering, the
   suspect is a kernel thread left in an uninterruptible wait by the shellcode
   itself, which userland cannot release.
 - App icon change (requires a pkg rebuild — the icon lives in the package).
-- Jailbreak running-status UI overhaul (deferred by the user until after the
-  bug fix).
+- The controller screen is an inline SVG, not a photographic render. A photo
+  needs an image generator or a licensed asset; the SVG was chosen so the page
+  stays at ~11 KB and needs no network fetch.
