@@ -101,7 +101,7 @@ how long the run stayed alive, and the last log line. **Copy log** exports the
 full record. The same lines are mirrored to `localStorage`, so they survive the
 process death that kills the on-screen log.
 
-Confirm the build stamp `Build: 2026-10-26e net-payloads` appears in the log. If
+Confirm the build stamp `Build: 2026-10-26f cache-report` appears in the log. If
 it is missing, the console is running a stale cache; relaunch once and, if it
 persists, clear the app's cache. Payloads are served over the network, so the
 console needs network access to this host when the chain reaches the payload

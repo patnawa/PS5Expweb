@@ -227,7 +227,7 @@ prerequisite Y2JB documents).
 - Tests: 14 Python + 3 Node pass; CI green on every push; staged build
   verified with the same invariants before each deploy.
 - Live: `https://patnawa.github.io/PS5Expweb/relapse/`, build stamp
-  `2026-10-26e net-payloads`, manifest `# version 2026-10-26e net-payloads #`
+  `2026-10-26f cache-report`, manifest `# version 2026-10-26f cache-report #`
   with zero payload entries, kstuff served over the network at 1,737,080
   bytes / SHA-256 prefix `ab9a6cb4…`.
 - Regression tests added: `test_distribution.py::
@@ -245,7 +245,7 @@ On the console:
 
 1. Launch the shortcut; the first launch performs the small update and
    reloads itself.
-2. Confirm the log line `Build: 2026-10-26e net-payloads`. No build line means
+2. Confirm the log line `Build: 2026-10-26f cache-report`. No build line means
    a stale cache — relaunch once; if still missing, clear the app's cache.
 3. Run one cycle. With the build line visible, the stale-payload path is
    excluded by construction; the CrashLog red banner's last stage (persisted
