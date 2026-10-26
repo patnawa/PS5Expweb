@@ -229,10 +229,10 @@ prerequisite Y2JB documents).
 
 ### Verification state
 
-- Tests: 14 Python + 3 Node pass; CI green on every push; staged build
+- Tests: 24 Python + 5 Node pass; CI green on every push; staged build
   verified with the same invariants before each deploy.
 - Live: `https://patnawa.github.io/PS5Expweb/relapse/`, build stamp
-  `2026-10-26m controller-ui`, manifest `# version 2026-10-26m controller-ui #`
+  `2026-10-26n no-join`, manifest `# version 2026-10-26n no-join #`
   with zero payload and zero GIF entries, kstuff served over the network at
   1,737,080 bytes / SHA-256 prefix `ab9a6cb4…`.
 - Regression tests added: `test_distribution.py::
@@ -250,7 +250,7 @@ On the console:
 
 1. Launch the shortcut; the first launch performs the small update and
    reloads itself.
-2. Confirm the log line `Build: 2026-10-26m controller-ui`. No build line means
+2. Confirm the log line `Build: 2026-10-26n no-join`. No build line means
    a stale cache — relaunch once; if still missing, clear the app's cache.
 3. Run one cycle. With the build line visible, the stale-payload path is
    excluded by construction; the CrashLog red banner's last stage (persisted
@@ -479,7 +479,7 @@ handoff, not the escalation. Three defects in the handoff path explain it.
 
 Recovery for a console already stuck: hold the power button ~15 s, unplug ~30 s,
 boot, delete the app's saved data (or reinstall the pkg) to drop the half-finished
-cache update, then launch once and confirm `Build: 2026-10-26m controller-ui` in the
+cache update, then launch once and confirm `Build: 2026-10-26n no-join` in the
 log before running a cycle. The build stamp is the only reliable signal that the
 new manifest — and therefore the small update — is actually in effect.
 
@@ -648,6 +648,47 @@ nothing to rescue.
 `tests/test_distribution.py::test_failcheck_marker_blocks_a_second_run_in_the_same_boot`
 asserts the syscall number, the marker path, the guard-before-arm ordering, the
 `teardownClean = true` early returns, and the reboot instruction in `main.js`.
+
+### "One success, then restart, then fail, forever" — the stale failcheck marker (2026-10-26n)
+
+The reported shape: the first launch after a cold boot succeeds and the game
+runs perfectly. Restart the console (or relaunch the app), and the next run
+fails. Power-cycle hard and the run succeeds again. Success, fail, success,
+fail — a strict alternation that tracks the boot, not the build.
+
+The failcheck marker explains it exactly. `markRunStarted()` writes
+`/<nid>/common_temp/lapse.fail` at the start of **every** run, and nothing ever
+deleted it. The Y2JB rationale for leaving it behind ("the next run hits
+'already jailbroken' first") does not hold here: the elfldr runs as a thread in
+the webview process, so when the app restarts the loader dies with it. On the
+fresh webview neither guard fires —
+
+- `uid === 0 && sandbox === 0` is false: the escalated cred belonged to the
+  *old* process, and a relaunched webview gets a fresh cred.
+- `elfldrListening()` is false: the loader thread died with the old process.
+
+— so the third guard reads the marker and aborts the run. A cold boot clears
+the app's temp storage, which is why the *next* boot succeeds. The marker is
+not tracking "the previous run failed"; it is tracking "a previous run ever
+happened".
+
+What shipped:
+
+- `deleteMarker(path)` in `relapse_exploit.js` calls `unlink` (`0xa`) on the
+  marker. Best effort: a failed unlink leaves the old conservative behaviour.
+- `run()` deletes the marker after the teardown when — and only when — the
+  teardown verified clean **and** the loader answered on 9021. That is the
+  definition of a run that left no dirt behind, so blocking the next launch
+  protects nothing. An incomplete teardown keeps the marker: that is precisely
+  the case the guard exists for, and the case where re-arming would panic.
+- The deletion runs before the `DONE` report, so a run that prints "teardown
+  verified" has already cleared its marker.
+
+This does not weaken the double-patch guard. A run that dies mid-chain never
+reaches the clean-teardown branch, so its marker stays and still blocks the
+next launch. Only a run that restored and verified every hijacked structure —
+pipes un-crossed, AIO drained, workers released, escalation written back — is
+allowed to clear its own marker.
 
 ### "Show me the controller and the status" — the screen rebuild (2026-10-26m)
 

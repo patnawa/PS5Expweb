@@ -604,16 +604,22 @@ async function spawnAndJoin(entry, args, symbols, p, chain, log) {
     };
   }
 
-  log("thread " + hex(thread) + " created, joining");
-  const joined = await chain.call(
-    base.add32(offsets.pthread_join),
-    thread,
-    result,
-  );
+  // No pthread_detach offset resolves on this firmware (none of the 33
+  // offsets/*.js files define it), so this branch is the real path, not a
+  // fallback. The shellcode thread becomes the elfldr server loop and never
+  // returns; awaiting pthread_join on it parks the ROP worker inside the
+  // kernel forever. That is the shutdown/restart freeze: the worker stays in
+  // the join, the teardown in the finally block never runs, the exploit pipes
+  // stay armed, and the console hangs at "prepare to turn off" until the power
+  // button is held. The elfldr does not need to be joined -- it is a daemon
+  // that serves payloads in the background. Return without joining so the app
+  // can close and the teardown can restore the pipes.
+  log("thread " + hex(thread) + " created, running as daemon (no join)");
   return {
-    joinResult: joined.low >>> 0,
-    shellcodeResult: p.read8(result),
-    detached: false,
+    joinResult: 0,
+    shellcodeResult: new int64(0, 0),
+    detached: true,
+    detachResult: 0,
   };
 }
 

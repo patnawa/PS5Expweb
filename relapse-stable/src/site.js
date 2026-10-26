@@ -89,7 +89,7 @@ function cstage(name, detail) {
   } catch (e) {}
 }
 
-const BUILD = "2026-10-26m controller-ui";
+const BUILD = "2026-10-26n no-join";
 
 // ---- PS5 UI status wiring -------------------------------------------------
 // The new screen shows the kernel exploit stage in a floating card instead of

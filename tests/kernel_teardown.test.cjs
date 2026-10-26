@@ -133,7 +133,8 @@ function loadKexp(context) {
     source = source.replace(/^export /gm, '');
     source += '\nglobalThis.__kexp = {' +
         ' prepareShellcodePipes,' +
-        ' restoreShellcodePipes: typeof restoreShellcodePipes === "undefined" ? null : restoreShellcodePipes' +
+        ' restoreShellcodePipes: typeof restoreShellcodePipes === "undefined" ? null : restoreShellcodePipes,' +
+        ' spawnAndJoin: typeof spawnAndJoin === "undefined" ? null : spawnAndJoin' +
         '};\n';
     vm.runInContext(source, context);
     return context.__kexp;
@@ -216,6 +217,13 @@ function bootWorld() {
         write2: (a, v) => user.w32(a, v & 0xffff),
         write4: (a, v) => user.w32(a, v),
         write8: (a, v) => user.w64(a, v),
+        stringify(s) {
+            const a = Ptr.from(userNext.at);
+            userNext.at += (s.length + 16) & ~15;
+            for (let i = 0; i < s.length; i++) user.w8(a.add32(i), s.charCodeAt(i));
+            user.w8(a.add32(s.length), 0);
+            return a;
+        },
     };
 
     const fdMap = new Map();
@@ -411,4 +419,78 @@ test('kexp shellcode pipe pair is restored after the shellcode returns', async (
     await kexp.restoreShellcodePipes(krw, master, victim, saved, () => {});
     assertOrdinaryPipe(k, KEXP_MASTER_STRUCT, KEXP_MASTER_BUF, 'kexp master');
     assertOrdinaryPipe(k, KEXP_VICTIM_STRUCT, KEXP_VICTIM_BUF, 'kexp victim');
+});
+
+// ---------------------------------------------------------------------------
+// Test D: spawnAndJoin must NOT wait on pthread_join when the firmware has no
+// pthread_detach offset. No offsets/*.js file defines pthread_detach, so this
+// is the real path on every supported firmware. A join parks the ROP worker in
+// the kernel: the app cannot close, the pipes stay armed, and the console hangs
+// at "prepare to turn off" until the power button is held. 2026-10-26n.
+// ---------------------------------------------------------------------------
+function makeSpawnFixture(calls) {
+    return {
+        chain: {
+            async call(addr, ...args) {
+                calls.push({addr: addr.toString(), argc: args.length});
+                return Ptr.from(0);
+            },
+        },
+        p: {
+            malloc: () => Ptr.from(0x1000),
+            write8: () => {},
+            read8: () => Ptr.from(0),
+            stringify: () => Ptr.from(0x2000),
+        },
+    };
+}
+
+test('spawnAndJoin returns without joining when pthread_detach is unresolved', async () => {
+    const {context, loadKexp} = bootWorld();
+    const kexp = loadKexp();
+    assert.equal(typeof kexp.spawnAndJoin, 'function',
+        'kexp.js must expose spawnAndJoin so the no-join path stays testable');
+
+    const calls = [];
+    const {chain, p} = makeSpawnFixture(calls);
+    const symbols = {
+        libkernel: {
+            base: Ptr.from(KBASE),
+            offsets: {pthread_create_name_np: 0x21890},
+        },
+    };
+
+    const out = await kexp.spawnAndJoin(
+        Ptr.from(0x3000), Ptr.from(0x4000), symbols, p, chain, () => {});
+
+    assert.equal(calls.length, 1,
+        'spawnAndJoin must call pthread_create once and return without joining ' +
+        '(saw ' + calls.length + ' chain calls: ' + JSON.stringify(calls) + ')');
+    assert.equal(out.detached, true,
+        'spawnAndJoin must report detached:true when it skips the join');
+    assert.equal(out.joinResult, 0,
+        'spawnAndJoin must report joinResult 0 so runKexp does not treat the run as a crash');
+});
+
+test('spawnAndJoin detaches instead of joining when pthread_detach resolves', async () => {
+    const {context, loadKexp} = bootWorld();
+    const kexp = loadKexp();
+
+    const calls = [];
+    const {chain, p} = makeSpawnFixture(calls);
+    const symbols = {
+        libkernel: {
+            base: Ptr.from(KBASE),
+            offsets: {pthread_create_name_np: 0x21890, pthread_detach: 0x21900},
+        },
+    };
+
+    const out = await kexp.spawnAndJoin(
+        Ptr.from(0x3000), Ptr.from(0x4000), symbols, p, chain, () => {});
+
+    assert.equal(calls.length, 2,
+        'spawnAndJoin must call pthread_create then pthread_detach ' +
+        '(saw ' + calls.length + ' chain calls)');
+    assert.equal(out.detached, true, 'detach path must report detached:true');
+    assert.equal(out.joinResult, 0, 'detach path must not report a join result');
 });
