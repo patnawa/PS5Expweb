@@ -409,6 +409,16 @@ async function main(userlandRW) {
     cstage("main:done", "already-jailbroken");
     return result;
   }
+  // Third guard fired: a previous run in THIS boot armed the kernel and died
+  // before it finished. Re-arming over that dirt is the double-patch panic.
+  // Say exactly what to do instead of the generic "did not finish", because the
+  // console is not broken -- it needs a reboot to clear the app's temp storage
+  // and the marker along with it.
+  if (result && result.failedInThisBoot)
+    throw new Error(
+      "a previous run in this boot did not finish - restart the console, then launch again",
+    );
+
   if (!result || !result.done)
     throw new Error("kernel exploit did not finish");
 

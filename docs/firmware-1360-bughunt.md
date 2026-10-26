@@ -232,7 +232,7 @@ prerequisite Y2JB documents).
 - Tests: 14 Python + 3 Node pass; CI green on every push; staged build
   verified with the same invariants before each deploy.
 - Live: `https://patnawa.github.io/PS5Expweb/relapse/`, build stamp
-  `2026-10-26k aio-drain`, manifest `# version 2026-10-26k aio-drain #`
+  `2026-10-26l failcheck`, manifest `# version 2026-10-26l failcheck #`
   with zero payload and zero GIF entries, kstuff served over the network at
   1,737,080 bytes / SHA-256 prefix `ab9a6cb4…`.
 - Regression tests added: `test_distribution.py::
@@ -250,7 +250,7 @@ On the console:
 
 1. Launch the shortcut; the first launch performs the small update and
    reloads itself.
-2. Confirm the log line `Build: 2026-10-26k aio-drain`. No build line means
+2. Confirm the log line `Build: 2026-10-26l failcheck`. No build line means
    a stale cache — relaunch once; if still missing, clear the app's cache.
 3. Run one cycle. With the build line visible, the stale-payload path is
    excluded by construction; the CrashLog red banner's last stage (persisted
@@ -479,7 +479,7 @@ handoff, not the escalation. Three defects in the handoff path explain it.
 
 Recovery for a console already stuck: hold the power button ~15 s, unplug ~30 s,
 boot, delete the app's saved data (or reinstall the pkg) to drop the half-finished
-cache update, then launch once and confirm `Build: 2026-10-26k aio-drain` in the
+cache update, then launch once and confirm `Build: 2026-10-26l failcheck` in the
 log before running a cycle. The build stamp is the only reliable signal that the
 new manifest — and therefore the small update — is actually in effect.
 
@@ -589,6 +589,65 @@ cannot block.
 stages the Pages tree and asserts the constant, the method, the ordering (the
 `scratch:` line must precede the `aio:` line), and the critical-list membership.
 Reverse the two lines and that test fails.
+
+### "The exploit runs twice in one boot and panics" — the failcheck marker (2026-10-26l)
+
+Y2JB writes `/<nid>/common_temp/lapse.fail` at the start of a run and refuses to
+run again while it exists: "Restart your PS5 to run Lapse again"
+(`src/lapse.js:1724`). The file itself is not the point; the ordering is. A run
+that arms the kernel and dies mid-chain leaves AIO groups and pipes dirty. A
+second run in the same boot re-arms over that dirt and panics the console.
+
+Our two existing guards only catch the case where escalation actually finished:
+
+- `uid === 0 && sandbox === 0` — the process is already root and unsandboxed.
+- `elfldrListening()` — the loader is up on 9021, so the kernel is patched.
+
+A run that died **before** escalating satisfies neither: the uid is still
+non-zero, the loader never started, and the kernel still has armed groups in it.
+That run slips past both guards and re-arms — the double-patch panic. The marker
+closes the gap.
+
+What shipped (`relapse-stable/src/relapse_exploit.js`):
+
+- `SYS.randomizedPath = 0x25a` — the PS5 call that returns the app's randomized
+  sandbox path. Y2JB's `get_nidpath()` uses it; we had no way to name a writable
+  path before.
+- `nidPath()`, `failMarkerPath()`, `fileExists()`, `writeMarker()`,
+  `failedInThisBoot()`, `markRunStarted()` — the marker plumbing. `open` is
+  `0x5`, `stat` is `0xbc`, `unlink` is `0xa`; `O_CREAT | O_WRONLY | O_TRUNC` with
+  mode `0777`, matching Y2JB's `write_file`.
+- The guard runs in `run()` **after** the uid and elfldr guards and **before**
+  `cstage("kexploit:leak-kbase")`. So a run that already escalated or already
+  has a loader up still takes the payload-redelivery path; only a run that died
+  pre-escalation is refused.
+- `main.js` names the instruction instead of the generic failure: "a previous
+  run in this boot did not finish - restart the console, then launch again".
+
+Deliberate choices:
+
+- The marker is written with a single `.` byte. An empty create can be coalesced
+  away on some filesystems, which would silently drop the guard.
+- Y2JB never deletes the marker on success. It does not need to: the next run
+  hits "already jailbroken" first and returns before the marker check. The
+  marker only blocks the pre-escalation failure case. `common_temp` is app temp
+  storage, so a real reboot clears it and the next boot runs clean.
+- Everything is best effort. If `randomized_path` fails or the sandbox is not
+  writable, the guard reports quietly and stays out of the way rather than
+  blocking a run it cannot reason about.
+
+Latent bug found while wiring this: `teardownClean` defaulted to `false`, so
+**every** early return — already-escalated, elfldr-up, and the new marker —
+fell through to `finally { if (!this.teardownClean) await this.rescue(); }`.
+`rescue()` calls `restoreOids()`, which calls `kaddr()`; at those points `kbase`
+is still `null`, so the sweep reported a false "POWER-CYCLE" failure over a
+kernel this process never armed. All three early returns now set
+`this.teardownClean = true` first, so `rescue()` is skipped when there is
+nothing to rescue.
+
+`tests/test_distribution.py::test_failcheck_marker_blocks_a_second_run_in_the_same_boot`
+asserts the syscall number, the marker path, the guard-before-arm ordering, the
+`teardownClean = true` early returns, and the reboot instruction in `main.js`.
 
 ### Open items
 

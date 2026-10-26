@@ -167,6 +167,46 @@ class DistributionTests(unittest.TestCase):
             # "closing the app is safe".
             self.assertIn(b'const critical = ["escalation", "pipes", "aio", "workers", "scratch"]', exploit)
 
+    def test_failcheck_marker_blocks_a_second_run_in_the_same_boot(self):
+        # Y2JB writes /<nid>/common_temp/lapse.fail at the start of a run and
+        # refuses to run while it exists: "Restart your PS5 to run Lapse again"
+        # (src/lapse.js:1724). A run that arms the kernel and dies mid-chain
+        # leaves AIO groups and pipes dirty; re-arming over that dirt panics.
+        # The uid and elfldr guards only catch the case where escalation
+        # finished, so a run that died before escalating slips past both.
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary) / "pages"
+            stage_stable(output)
+            exploit = (output / "relapse/src/relapse_exploit.js").read_bytes()
+            main = (output / "relapse/src/main.js").read_bytes()
+
+            # randomized_path (0x25a) is how Y2JB derives the app's sandbox
+            # directory for the marker. Without it there is no path to write.
+            self.assertIn(b"randomizedPath: 0x25a", exploit)
+            # The marker must be checked and written.
+            self.assertIn(b"failedInThisBoot()", exploit)
+            self.assertIn(b"markRunStarted()", exploit)
+            self.assertIn(b"common_temp/lapse.fail", exploit)
+            # Ordering: the marker check must run before the chain arms.
+            guard_at = exploit.index(b"await this.failedInThisBoot()")
+            arm_at = exploit.index(b'cstage("kexploit:leak-kbase")')
+            self.assertLess(
+                guard_at,
+                arm_at,
+                "the failcheck guard must run before the chain arms",
+            )
+            # A guard that fires before arming must not trigger rescue(): kbase
+            # is still null there, so restoreOids() would call kaddr() on null
+            # and report a false POWER-CYCLE failure.
+            self.assertIn(b"this.teardownClean = true;", exploit)
+            # main.js must name the reboot instruction instead of the generic
+            # "kernel exploit did not finish".
+            self.assertIn(b"failedInThisBoot", main)
+            self.assertIn(
+                b"a previous run in this boot did not finish - restart the console, then launch again",
+                main,
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
