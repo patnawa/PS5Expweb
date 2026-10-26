@@ -227,7 +227,7 @@ prerequisite Y2JB documents).
 - Tests: 14 Python + 3 Node pass; CI green on every push; staged build
   verified with the same invariants before each deploy.
 - Live: `https://patnawa.github.io/PS5Expweb/relapse/`, build stamp
-  `2026-10-26f cache-report`, manifest `# version 2026-10-26f cache-report #`
+  `2026-10-26g safe-escalate`, manifest `# version 2026-10-26g safe-escalate #`
   with zero payload entries, kstuff served over the network at 1,737,080
   bytes / SHA-256 prefix `ab9a6cb4…`.
 - Regression tests added: `test_distribution.py::
@@ -245,7 +245,7 @@ On the console:
 
 1. Launch the shortcut; the first launch performs the small update and
    reloads itself.
-2. Confirm the log line `Build: 2026-10-26f cache-report`. No build line means
+2. Confirm the log line `Build: 2026-10-26g safe-escalate`. No build line means
    a stale cache — relaunch once; if still missing, clear the app's cache.
 3. Run one cycle. With the build line visible, the stale-payload path is
    excluded by construction; the CrashLog red banner's last stage (persisted
@@ -273,7 +273,7 @@ A manifest bump makes cached clients re-download every listed file. On an old
 cached build the exploit auto-runs on load, so the chain can arm while the
 download is still in flight; AppCache then serves the old copy of the listed
 files. That is the same stale-download failure described above, and it is why a
-relaunch after the `2026-10-26f` bump could show "Download cache..." and then
+relaunch after the `2026-10-26f`/`g` bump could show "Download cache..." and then
 hang.
 
 The gate had a race that made this possible even in the hardened build: on a
@@ -310,6 +310,54 @@ Two consequences for users:
    run reproduced the upstream crash even though the repository held the fix.
    Default mode now stages and serves `relapse-stable/`; `--snapshot` serves the
    unpatched bytes for provenance checks only and prints a warning.
+
+### Full write-path audit 2026-10-26g
+
+Every kernel write in `relapse-stable/src/relapse_exploit.js` was traced to its
+target and its guard. The table lists each site and whether the address it
+writes to is validated before the write.
+
+| Write site | Target | Guard |
+| --- | --- | --- |
+| `armKernelReadWrite` counter | `walkCounter.addr` + KASLR base | read-back verified, original restored |
+| `flipOidKind` | `oid.*.kind` from offset table | kind value checked against expected states |
+| AIO arming writes | AIO group structs | group looked up and validated |
+| `defuseAioGroups` waiters | AIO group waiters | generation, state and type checked first |
+| `escalate` ucred fields | `p_ucred + ucred.*` | pointer now validated; every write tracked |
+| `escalate` fd_cdir/rdir/jdir | `p_fd + filedesc.*` | **previously unguarded** — pointer now validated |
+| `escalate` dynlib range | `p_dynlib + dynlib.*` | pointer checked with `isKernelPointer` |
+| `restoreEscalation` writeback | snapshot `p_fd`, `p_dynlib` | **previously unguarded** — pointer now validated |
+| `kwriteFast` through crossed pipe | arbitrary kernel address | bounded copy length, read-back verified |
+
+Two real defects were found and fixed in this pass, both capable of producing a
+kernel panic that looks like "the exploit froze the console":
+
+1. **`escalate()` wrote to `p_fd` without validating it.** The old code read
+   `proc.fd` and immediately wrote `fd_cdir`, `fd_rdir` and `fd_jdir` through
+   the result. Every other structure access in the file checks
+   `isKernelPointer` first; this one did not. A stale or wrong `proc.fd` offset
+   turns those three writes into writes to an arbitrary kernel address. The
+   pointer is now validated before any credential write happens, and the whole
+   escalation aborts if it is not sane.
+2. **`escalate()` discarded the result of all fourteen writes.** A failed
+   capability write left the process half-escalated (uid 0 but capabilities
+   unchanged, or the reverse) with no signal. Closing the app in that state
+   walks kernel structures with mismatched credentials. The writes are now
+   tracked, and any failure — or a failed final uid/sandbox check — restores the
+   credential fields and the directory pointers from the snapshots taken before
+   the first write. `sceAttrs` also no longer writes `0xffffffff` when its
+   preceding read failed; the value comes from the validated snapshot.
+
+`restoreEscalation()` now refuses to write through a snapshot `p_fd` that is not
+a kernel pointer, so a stale saved pointer cannot panic the console during
+teardown — the "freeze right after the success message" pattern.
+
+Remaining risk that cannot be closed statically: the 13.60 table marks
+`proc.pid` and `proc.dynlib` as `VERIFY`. Both are guarded by plausibility and
+pointer checks at runtime (`pid` range test, `isKernelPointer` on the dynlib
+pointer), so a wrong value stops the chain instead of corrupting memory — but a
+wrong value that happens to look plausible would still pass. Confirming those
+two offsets needs a console or a firmware dump.
 
 ### Open items
 

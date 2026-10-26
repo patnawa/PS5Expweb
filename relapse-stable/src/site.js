@@ -89,7 +89,7 @@ function cstage(name, detail) {
   } catch (e) {}
 }
 
-const BUILD = "2026-10-26f cache-report";
+const BUILD = "2026-10-26g safe-escalate";
 
 // Payload revision key for fetchBinary's cache-buster. Bump whenever the
 // shipped ELFs change so consoles never reuse an HTTP-cached old payload.
