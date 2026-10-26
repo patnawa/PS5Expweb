@@ -229,10 +229,10 @@ prerequisite Y2JB documents).
 
 ### Verification state
 
-- Tests: 24 Python + 5 Node pass; CI green on every push; staged build
+- Tests: 24 Python + 8 Node pass; CI green on every push; staged build
   verified with the same invariants before each deploy.
 - Live: `https://patnawa.github.io/PS5Expweb/relapse/`, build stamp
-  `2026-10-26n no-join`, manifest `# version 2026-10-26n no-join #`
+  `2026-10-26o arm-c-guard`, manifest `# version 2026-10-26o arm-c-guard #`
   with zero payload and zero GIF entries, kstuff served over the network at
   1,737,080 bytes / SHA-256 prefix `ab9a6cb4…`.
 - Regression tests added: `test_distribution.py::
@@ -250,7 +250,7 @@ On the console:
 
 1. Launch the shortcut; the first launch performs the small update and
    reloads itself.
-2. Confirm the log line `Build: 2026-10-26n no-join`. No build line means
+2. Confirm the log line `Build: 2026-10-26o arm-c-guard`. No build line means
    a stale cache — relaunch once; if still missing, clear the app's cache.
 3. Run one cycle. With the build line visible, the stale-payload path is
    excluded by construction; the CrashLog red banner's last stage (persisted
@@ -479,7 +479,7 @@ handoff, not the escalation. Three defects in the handoff path explain it.
 
 Recovery for a console already stuck: hold the power button ~15 s, unplug ~30 s,
 boot, delete the app's saved data (or reinstall the pkg) to drop the half-finished
-cache update, then launch once and confirm `Build: 2026-10-26n no-join` in the
+cache update, then launch once and confirm `Build: 2026-10-26o arm-c-guard` in the
 log before running a cycle. The build stamp is the only reliable signal that the
 new manifest — and therefore the small update — is actually in effect.
 
@@ -689,6 +689,43 @@ reaches the clean-teardown branch, so its marker stays and still blocks the
 next launch. Only a run that restored and verified every hijacked structure —
 pipes un-crossed, AIO drained, workers released, escalation written back — is
 allowed to clear its own marker.
+
+### "ARM-C OVERSHOT" — the oid flip walked into oid_arg1 (2026-10-26o)
+
+The message is exact: `OVERSHOT to 0x… -- borrowed into oid_arg1. Unrecoverable
+this boot, REBOOT.` It comes from `flipOidKind()`.
+
+`flipOidKind()` fires one AIO cancel per waiter ("head") and re-reads the oid
+kind after each one. The target is `0x70048002`; the original is `0x80048002`.
+The write is aimed at `B.kindByte3` (`0x028cee57`), whose next byte is
+`B.oid_arg1` (`0x028cee58`). If a cancel lands one byte past the target, the
+kind reads below `0x70` and the top byte of the oid is now argument data —
+`oid_arg1` has been borrowed into the kind. That state cannot be repaired from
+userland.
+
+Why it happens: the reclaimed waiter's target pointer is mis-aimed. The heap
+groom put the array one byte off, so the cancel writes into the neighbour. This
+is the same class as the WebKit `heap placement failed` failure: layout
+dependent, not logic dependent, and more likely when memory is fragmented (the
+app has been open a while, or a previous attempt ran in the same boot).
+
+What shipped: `flipOidKind()` now stops at the **first** value that is neither
+the original kind nor the target, and it checks *before* firing the next head.
+Previously it aborted only on the below-target case and kept firing on any
+other intermediate value — one extra cancel is exactly the difference between a
+failed flip and a request that cannot be recovered without a reboot. A dead
+head followed by a live head still completes normally (tested).
+
+When you see it:
+
+1. Do not run again in this boot. The B oid is corrupt and the failcheck marker
+   is on disk, so a second run would re-arm over it.
+2. Hold the power button ~15 s, unplug ~30 s, boot. That clears the marker and
+   gives the allocator a fresh layout.
+3. Launch once and confirm `Build: 2026-10-26o arm-c-guard` before running.
+4. If it overshoots again on a fresh boot, the arming tuning does not match that
+   console's layout. Record the `ARM-C-PLAN`, `ARM-C-STATES` and `ARM-C-RECLAIM`
+   lines plus the `?numw=`/`?spray=`/`?churn=` values in use.
 
 ### "Show me the controller and the status" — the screen rebuild (2026-10-26m)
 

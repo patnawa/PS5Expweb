@@ -472,6 +472,54 @@ test('spawnAndJoin returns without joining when pthread_detach is unresolved', a
         'spawnAndJoin must report joinResult 0 so runKexp does not treat the run as a crash');
 });
 
+// ---------------------------------------------------------------------------
+// Test E: flipOidKind must stop at the first mis-aimed write instead of
+// firing more heads into the neighbouring oid field. On B, kindByte3+1 IS
+// oid_arg1 (0x028cee57 -> 0x028cee58), so one extra head is the difference
+// between "the flip failed, REBOOT" and "borrowed into oid_arg1". 2026-10-26o.
+// ---------------------------------------------------------------------------
+function flipFixture(sequence) {
+    const {target} = bootWorld();
+    const lines = [];
+    target.onScreen = (msg) => lines.push(String(msg));
+    let cancels = 0;
+    target.oidKind = async () => (sequence.length ? sequence.shift() : null);
+    target.sysInt = async () => { cancels++; return 0; };
+    const reclaim = {
+        dangling: {ids: Ptr.from(0x1000)},
+        firstPending: 0,
+        heads: 8,
+    };
+    return {target, lines, reclaim, cancels: () => cancels};
+}
+
+test('flipOidKind reports OVERSHOT and fires once when the kind lands below target', async () => {
+    const {target, lines, reclaim, cancels} = flipFixture([0x80048002, 0x60048002]);
+    const ok = await target.flipOidKind('ARM-C', reclaim, 'mB', 0x70048002);
+    assert.equal(ok, false, 'an overshoot must fail the flip');
+    assert.equal(cancels(), 1, 'the overshoot must stop after the one bad head');
+    assert.ok(lines.some((l) => l.includes('OVERSHOT')),
+        'the report must name the overshoot (saw: ' + lines.join(' | ') + ')');
+});
+
+test('flipOidKind stops after one head when the kind walks to an unknown value', async () => {
+    const {target, lines, reclaim, cancels} = flipFixture([0x80048002, 0x75048002, 0x70048002]);
+    const ok = await target.flipOidKind('ARM-C', reclaim, 'mB', 0x70048002);
+    assert.equal(ok, false, 'an unexpected intermediate kind must fail the flip');
+    assert.equal(cancels(), 1,
+        'the second head must not fire after the kind left its original value ' +
+        '(saw ' + cancels() + ')');
+    assert.ok(lines.some((l) => l.includes('mis-aimed')),
+        'the report must say the waiter target is mis-aimed (saw: ' + lines.join(' | ') + ')');
+});
+
+test('flipOidKind still completes when dead heads precede the live head', async () => {
+    const {target, reclaim, cancels} = flipFixture([0x80048002, 0x80048002, 0x70048002]);
+    const ok = await target.flipOidKind('ARM-C', reclaim, 'mB', 0x70048002);
+    assert.equal(ok, true, 'a dead head followed by a live head must still flip');
+    assert.equal(cancels(), 2, 'exactly two heads: one dead, one live');
+});
+
 test('spawnAndJoin detaches instead of joining when pthread_detach resolves', async () => {
     const {context, loadKexp} = bootWorld();
     const kexp = loadKexp();
