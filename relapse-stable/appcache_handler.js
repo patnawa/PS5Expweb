@@ -119,61 +119,115 @@ window.__exploitDone = false;
 // AppCache serves the OLD copy of every listed file -- payloads included --
 // so a chain that starts mid-update would run stale code while the network
 // already has the fix. Outcomes:
-//   "current"     cache is up to date, safe to run
+//   "current"     cache is up to date (or absent), safe to run
+//   "cached"      a first download finished, safe to run
 //   "unsupported" no applicationCache in this webview, safe to run
 //   "error"       cache check failed, safe to run (payloads come from network)
-//   "timeout"     check took too long, safe to run
+//   "timeout"     check took too long but is no longer downloading, safe to run
+//   "stale"       still CHECKING/DOWNLOADING at timeout: NOT safe to run
 // An update that lands while waiting makes the page reload itself instead of
 // resolving: this helper is only ever awaited before the chain starts, so the
 // page is idle and a reload is safe. The promise then never settles on the
 // old page.
+//
+// The grace window is what makes this safe on a cold load. The manifest check
+// is asynchronous: when site.js runs, status can still read UNCACHED or IDLE
+// even though an update is about to start. Returning "current" there started
+// the chain just as the download began -- the exact stale-download freeze. So
+// when a manifest is declared and the cache is not yet reporting an update, we
+// wait briefly for CHECKING/DOWNLOADING to announce itself before deciding.
+var APPCACHE_GRACE_MS = 1500;
+
 window.__appcacheSettled = function () {
     var appCache = window.applicationCache;
     if (!appCache) return Promise.resolve("unsupported");
 
-    if (
-        appCache.status === appCache.UNCACHED ||
-        appCache.status === appCache.IDLE ||
-        appCache.status === appCache.OBSOLETE
-    ) return Promise.resolve("current");
+    var hasManifest = !!document.documentElement.getAttribute("manifest");
+    if (!hasManifest) return Promise.resolve("current");
+
+    function waitForOutcome() {
+        window.__appcacheSettling = true;
+        return new Promise(function (resolve) {
+            var settled = false;
+            var graceTimer = null;
+            var timeoutTimer = null;
+
+            function cleanup() {
+                window.__appcacheSettling = false;
+                appCache.removeEventListener('updateready', onUpdateReady);
+                appCache.removeEventListener('noupdate', onNoUpdate);
+                appCache.removeEventListener('cached', onCached);
+                appCache.removeEventListener('error', onError);
+                appCache.removeEventListener('checking', onChecking);
+                appCache.removeEventListener('downloading', onDownloading);
+                if (graceTimer) { clearTimeout(graceTimer); graceTimer = null; }
+                if (timeoutTimer) { clearTimeout(timeoutTimer); timeoutTimer = null; }
+            }
+            function settle(result) {
+                if (settled) return;
+                settled = true;
+                cleanup();
+                resolve(result);
+            }
+            function onUpdateReady() {
+                if (appCache.status !== appCache.UPDATEREADY) return;
+                cleanup();
+                swapAndReload();
+                // Never resolves: the page reloads with the new cache.
+            }
+            function onNoUpdate() { settle("current"); }
+            function onCached() { settle("cached"); }
+            function onError() { settle("error"); }
+            function armTimeout() {
+                if (timeoutTimer) return;
+                timeoutTimer = setTimeout(function () {
+                    // If the update is STILL running, starting the chain would
+                    // run it against a cache being replaced. Stop instead.
+                    var st = appCache.status;
+                    if (st === appCache.CHECKING || st === appCache.DOWNLOADING)
+                        settle("stale");
+                    else
+                        settle("timeout");
+                }, 20000);
+            }
+            function onChecking() { armTimeout(); }
+            function onDownloading() { armTimeout(); }
+
+            appCache.addEventListener('updateready', onUpdateReady, false);
+            appCache.addEventListener('noupdate', onNoUpdate, false);
+            appCache.addEventListener('cached', onCached, false);
+            appCache.addEventListener('error', onError, false);
+            appCache.addEventListener('checking', onChecking, false);
+            appCache.addEventListener('downloading', onDownloading, false);
+
+            var st = appCache.status;
+            if (st === appCache.UPDATEREADY) {
+                cleanup();
+                swapAndReload();
+                return;
+            }
+            if (st === appCache.CHECKING || st === appCache.DOWNLOADING) {
+                armTimeout();
+                return;
+            }
+            // Cold load: wait for the check to announce itself.
+            graceTimer = setTimeout(function () {
+                graceTimer = null;
+                var now = appCache.status;
+                if (now === appCache.CHECKING || now === appCache.DOWNLOADING) {
+                    armTimeout();
+                } else {
+                    settle("current");
+                }
+            }, APPCACHE_GRACE_MS);
+        });
+    }
 
     if (appCache.status === appCache.UPDATEREADY) {
         swapAndReload();
         return new Promise(function () {});
     }
-
-    // CHECKING or DOWNLOADING: wait for the outcome, bounded.
-    window.__appcacheSettling = true;
-    return new Promise(function (resolve) {
-        var settled = false;
-        function cleanup() {
-            window.__appcacheSettling = false;
-            appCache.removeEventListener('updateready', onUpdateReady);
-            appCache.removeEventListener('noupdate', onNoUpdate);
-            appCache.removeEventListener('error', onError);
-        }
-        function settle(result) {
-            if (settled) return;
-            settled = true;
-            cleanup();
-            resolve(result);
-        }
-        function onUpdateReady() {
-            if (appCache.status !== appCache.UPDATEREADY) return;
-            cleanup();
-            swapAndReload();
-            // Never resolves: the page reloads with the new cache.
-        }
-        function onNoUpdate() { settle("current"); }
-        function onError() { settle("error"); }
-
-        appCache.addEventListener('updateready', onUpdateReady, false);
-        appCache.addEventListener('noupdate', onNoUpdate, false);
-        appCache.addEventListener('error', onError, false);
-        // A stuck check must never hold the console hostage: the payloads are
-        // fetched from the network now, so continuing is always safe.
-        setTimeout(function () { settle("timeout"); }, 20000);
-    });
+    return waitForOutcome();
 };
 
 function swapAndReload() {

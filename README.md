@@ -93,6 +93,31 @@ Never reset or navigate away while a chain is running — an armed chain loses i
 webview and can panic the kernel. After a freeze: power-cycle, relaunch once,
 read the red banner, then reset if the build stamp is still missing.
 
+### First launch after an update can freeze once
+
+A manifest bump makes every cached client re-download the cached files. The
+exploit starts automatically on page load, so on an **old cached build** the
+chain can arm while that download is still running — and AppCache serves the old
+copy of every listed file during an update. That combination is the documented
+freeze. The current build waits for the cache to settle first and aborts the run
+if the update is still downloading after 20 s, but a client running the older
+cached code does not have that guard.
+
+If a launch shows "Download cache..." and then hangs:
+
+1. Hold the power button ~15 s to force the console off, unplug power ~30 s,
+   then boot. Do not relaunch the shortcut yet.
+2. Delete the app's saved data (Settings → Storage → Console Storage → Saved
+   Data → Delete → select the app) or delete and reinstall the pkg. This removes
+   the half-finished cache update.
+3. Launch once. It loads from the network, downloads the cache, waits for it to
+   settle, then runs. Expect `Build: 2026-10-26f cache-report` and a
+   `Cache at start:` line.
+
+If the console still will not boot or restart cleanly, use Safe Mode (hold power
+~7 s until the second beep) and clear the system software cache; rebuilding the
+database is the heavier fallback.
+
 ### Crash diagnostics
 
 The hardened host arms a durable crash log before the exploit starts. If the

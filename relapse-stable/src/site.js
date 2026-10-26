@@ -161,6 +161,7 @@ async function run() {
     settle = "error";
   }
   if (settle === "updated") writeLog("AppCache updated before run", "info");
+  else if (settle === "cached") writeLog("AppCache downloaded before run", "info");
   else if (settle === "timeout") writeLog("AppCache check timed out; continuing", "warn");
   else if (settle === "error") writeLog("AppCache check failed; continuing", "warn");
 
@@ -174,6 +175,23 @@ async function run() {
   } catch (e) {}
   writeLog("Cache settled: " + cacheSummary(settledCache), "info");
   cstage("site:cache-status", settledCache.statusName + "/" + (settle || "n/a"));
+
+  // The update was still downloading when the bounded wait expired. Starting
+  // the chain here is what freezes the console: AppCache would serve the old
+  // copy of the files while the download replaces them. Abort without arming
+  // anything and leave __exploitDone false so the cache handler can still
+  // reload once the update finishes (safe: no chain ran).
+  if (settle === "stale") {
+    window.__exploitRunning = false;
+    const message =
+      "Cache update still downloading; refusing to start the chain. " +
+      "Wait for the update to finish or reboot and relaunch.";
+    writeLog(message, "error");
+    try {
+      if (window.CrashLog) window.CrashLog.finish("failed", "cache update did not finish");
+    } catch (e) {}
+    return "stale-abort";
+  }
 
   // Tell the cache handler a chain is live: a reload from here on would re-run
   // the exploit against an already-patched kernel and panic the console.
@@ -197,7 +215,14 @@ async function run() {
 }
 
 run()
-  .then(() => {
+  .then((result) => {
+    if (result === "stale-abort") {
+      // No chain ran. Leave __exploitDone false so the cache handler may still
+      // reload once the pending update finishes; that reload is safe because
+      // nothing was armed.
+      window.__exploitRunning = false;
+      return;
+    }
     // The chain finished: a cache reload from here would re-arm a patched
     // kernel, so mark the run complete and never auto-reload after this.
     window.__exploitRunning = false;

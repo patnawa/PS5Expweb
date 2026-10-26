@@ -267,6 +267,27 @@ reopen `/relapse/` afterwards. On the installed pkg the deeplink URL is fixed,
 so deleting the app's saved data or reinstalling is the equivalent client-side
 clear.
 
+### Update-loop freeze and the settle-gate race
+
+A manifest bump makes cached clients re-download every listed file. On an old
+cached build the exploit auto-runs on load, so the chain can arm while the
+download is still in flight; AppCache then serves the old copy of the listed
+files. That is the same stale-download failure described above, and it is why a
+relaunch after the `2026-10-26f` bump could show "Download cache..." and then
+hang.
+
+The gate had a race that made this possible even in the hardened build: on a
+cold load the cache status can still read `UNCACHED`/`IDLE` before the manifest
+check announces itself, so the gate resolved "current" and started the chain just
+as the download began. The fix waits a short grace window for
+`CHECKING`/`DOWNLOADING`, and if the update is still running when the bounded
+wait expires it reports `stale` and the runner refuses to start the chain
+(`stale-abort`) instead of running against a cache being replaced.
+
+Recovery for a console already stuck in that loop: force power off, unplug for
+~30 s, boot, then delete the app's saved data or reinstall the pkg before
+launching again. The app's fixed deeplink cannot reach the reset page.
+
 ### Upstream re-inspection 2026-10-26
 
 The deployed host at `https://ps5xploit.github.io/relapse/` was re-fetched file
