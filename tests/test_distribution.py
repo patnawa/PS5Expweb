@@ -134,6 +134,39 @@ class DistributionTests(unittest.TestCase):
             self.assertIn(b"fetchBinaryOnce", kexp)
             self.assertIn(b"const attempts = 3", kexp)
 
+    def test_teardown_drains_aio_requests_before_closing_descriptors(self):
+        # "The kernel exploit passes but the console freezes when a game is
+        # launched or the console is restarted" is a kernel-AIO leak. Y2JB's
+        # cleanup() (ps5-y2jb-autoloader src/lapse.js) closes its descriptors
+        # and then calls aio_multi_wait + aio_multi_delete so nothing is left
+        # in p_aioinfo for the kernel's close path to walk. Ours zeroed the
+        # group waiters and left every submitted request in the table, so the
+        # close path walked a defused group with live requests and hung.
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary) / "pages"
+            stage_stable(output)
+            exploit = (output / "relapse/src/relapse_exploit.js").read_bytes()
+
+            # aio_multi_delete (0x296) must be reachable: it is the only call
+            # that removes a request from the process AIO table.
+            self.assertIn(b"aioMultiDelete: 0x296", exploit)
+            # The drain must exist and be wired into the teardown status.
+            self.assertIn(b"drainAioRequests()", exploit)
+            self.assertIn(b"aio: await this.drainAioRequests()", exploit)
+            # Ordering is the fix: descriptors close first so pending reads
+            # complete with an error before the delete runs. Reversing these
+            # two lines reintroduces the hang.
+            scratch_at = exploit.index(b"scratch: await this.closeScratchDescriptors()")
+            aio_at = exploit.index(b"aio: await this.drainAioRequests()")
+            self.assertLess(
+                scratch_at,
+                aio_at,
+                "closeScratchDescriptors() must run before drainAioRequests()",
+            )
+            # A drain that fails must make the teardown INCOMPLETE, not report
+            # "closing the app is safe".
+            self.assertIn(b'const critical = ["escalation", "pipes", "aio", "workers", "scratch"]', exploit)
+
 
 if __name__ == "__main__":
     unittest.main()

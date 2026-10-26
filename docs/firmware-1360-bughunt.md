@@ -232,7 +232,7 @@ prerequisite Y2JB documents).
 - Tests: 14 Python + 3 Node pass; CI green on every push; staged build
   verified with the same invariants before each deploy.
 - Live: `https://patnawa.github.io/PS5Expweb/relapse/`, build stamp
-  `2026-10-26j teardown-safety`, manifest `# version 2026-10-26j teardown-safety #`
+  `2026-10-26k aio-drain`, manifest `# version 2026-10-26k aio-drain #`
   with zero payload and zero GIF entries, kstuff served over the network at
   1,737,080 bytes / SHA-256 prefix `ab9a6cb4…`.
 - Regression tests added: `test_distribution.py::
@@ -250,7 +250,7 @@ On the console:
 
 1. Launch the shortcut; the first launch performs the small update and
    reloads itself.
-2. Confirm the log line `Build: 2026-10-26j teardown-safety`. No build line means
+2. Confirm the log line `Build: 2026-10-26k aio-drain`. No build line means
    a stale cache — relaunch once; if still missing, clear the app's cache.
 3. Run one cycle. With the build line visible, the stale-payload path is
    excluded by construction; the CrashLog red banner's last stage (persisted
@@ -479,7 +479,7 @@ handoff, not the escalation. Three defects in the handoff path explain it.
 
 Recovery for a console already stuck: hold the power button ~15 s, unplug ~30 s,
 boot, delete the app's saved data (or reinstall the pkg) to drop the half-finished
-cache update, then launch once and confirm `Build: 2026-10-26j teardown-safety` in the
+cache update, then launch once and confirm `Build: 2026-10-26k aio-drain` in the
 log before running a cycle. The build stamp is the only reliable signal that the
 new manifest — and therefore the small update — is actually in effect.
 
@@ -530,6 +530,65 @@ Ordering note: the elfldr launch runs while the exploit pipes are still armed
 detach are what keep that window from becoming a permanent one. The pipe restore
 still runs in the `finally`, and the `jdir` fix makes the close-time walk safe
 even if the teardown is never reached.
+
+### "The exploit passes, the game does not load, and the console hangs" — the AIO leak (2026-10-26k)
+
+This is the failure the user kept reporting against the working
+`itsPLK/ps5-y2jb-autoloader` reference: the chain reports success, the elfldr
+answers on 9021, and then the game never appears and a restart or power-off
+hangs until the power button is held. Comparing the two teardowns side by side
+found the gap.
+
+Y2JB's `cleanup()` (`src/lapse.js:1643`) does five things on the way out, and it
+runs on **every** path — success after `ps5_jailbreak()`, each failed stage, and
+the outer `catch`. The two that matter here:
+
+1. It closes `block_fd` and `unblock_fd`, then calls
+   `aio_multi_wait(block_id_buf, 1, block_errors, 1, 0n)` and
+   `aio_multi_delete(block_id_buf, 1, block_errors)` on the blocking request.
+2. It runs `free_aios2(groom_ids, NUM_GROOMS)` over every groom request it
+   submitted, and closes every fd in `sds`/`sds_alt`.
+
+Every request it created is **deleted from the kernel's `p_aioinfo` table**
+before the app is allowed to close. Ours did not do that. `defuseAioGroups()`
+zeroes the group's `waiters` pointer, which makes the group inert — but the
+request structs stay in `p_aioinfo`, still linked, still pending. When the app
+closes (to launch the game, or on restart), the kernel walks the AIO table and
+tries to cancel requests that are still parked on reads. That walk over a
+defused group is the hang. It is the same class of bug as the `fd_jdir` NULL
+walk, just in a different table: userland leaves a pointer the close path
+follows, and the close path is what freezes.
+
+The fix (`relapse-stable/src/relapse_exploit.js`):
+
+- `SYS.aioMultiDelete = 0x296` is now reachable. It was the only AIO syscall the
+  chain was missing; the constant existed in `utils/syscalls.js` but was never
+  exposed on the `SYS` object the exploit uses.
+- New `drainAioRequests()` walks `armedGroups`, collects every request id the
+  chain submitted, and calls `aio_multi_delete` on each group's batch. It treats
+  `-1` as the only failure (`sysInt` returns a signed 32-bit int) and never
+  throws: a delete that fails is reported and the teardown keeps running.
+- Ordering is the fix. The drain runs **last** in `restoreKernelState()`, after
+  `releaseAioWorkers()` and `closeScratchDescriptors()`, mirroring Y2JB's
+  close-then-delete sequence. Closing the descriptors completes every pending
+  read with an error, so the delete has nothing to race and cannot block. Run it
+  first and the delete races reads that are still in flight.
+- The drain is in the `critical` list, so a failed drain makes the teardown
+  report INCOMPLETE instead of "closing the app is safe". The honest summary
+  line is the whole point: a run that leaves requests in the table must not tell
+  the user it is safe to close the app.
+
+Deliberate omission: the drain deletes without calling `aio_multi_wait` first.
+Y2JB pairs them because it closes its fds first too; the delete is what actually
+empties the table. A wait is a blocking call whose timeout is a raw pointer, and
+getting its layout wrong parks the ROP worker in the kernel forever — the exact
+hang this teardown exists to prevent. Deleting without waiting loses nothing and
+cannot block.
+
+`tests/test_distribution.py::test_teardown_drains_aio_requests_before_closing_descriptors`
+stages the Pages tree and asserts the constant, the method, the ordering (the
+`scratch:` line must precede the `aio:` line), and the critical-list membership.
+Reverse the two lines and that test fails.
 
 ### Open items
 
