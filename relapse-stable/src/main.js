@@ -97,7 +97,65 @@ function log(message, type = "log") {
 // AUTO-LOAD: ya no se espera a pulsar R2.
 // Se lanzan los payloads automaticamente con 2s de separacion.
 // ============================================================
+
+// Payload delivery bookkeeping, shared with the already-jailbroken path.
+//
+// "pending" is set the moment a delivery attempt starts and cleared only when
+// every payload was handed to the loader. It lives in localStorage because the
+// failure this guards against crosses process lifetimes: the webview can die
+// mid-delivery (that is exactly the "kernel exploit pass but game not load"
+// report), and the next launch must retry the handoff instead of assuming a
+// previous run already installed the payloads. "ok" is the session-scoped fast
+// path: a plain page reload after a *successful* delivery must not send
+// pldmgr.elf a second time.
+const PAYLOAD_PENDING_KEY = "ps5expweb_payload_pending";
+const PAYLOAD_OK_KEY = "ps5expweb_payload_ok";
+
+function readFlag(key) {
+  try {
+    return localStorage.getItem(key) === "1";
+  } catch (e) {
+    return false;
+  }
+}
+
+function writeFlag(key, on) {
+  try {
+    if (on) localStorage.setItem(key, "1");
+    else localStorage.removeItem(key);
+  } catch (e) {}
+}
+
+function payloadDeliveryPending() {
+  return readFlag(PAYLOAD_PENDING_KEY);
+}
+
+function payloadDeliveredThisSession() {
+  try {
+    return sessionStorage.getItem(PAYLOAD_OK_KEY) === "1";
+  } catch (e) {
+    return false;
+  }
+}
+
+function markPayloadDelivered(ok) {
+  try {
+    if (ok) {
+      sessionStorage.setItem(PAYLOAD_OK_KEY, "1");
+      writeFlag(PAYLOAD_PENDING_KEY, false);
+    } else {
+      sessionStorage.removeItem(PAYLOAD_OK_KEY);
+      writeFlag(PAYLOAD_PENDING_KEY, true);
+    }
+  } catch (e) {}
+}
+
+// Sends pldmgr.elf (and any configured extras) to the running elfldr.
+// Returns { loaded, failed } or null when the loader could not be reached.
+// A payload that never reaches the loader is a real failure: the caller must
+// surface it, not report "ok" on a run whose game will not load.
 async function autoLoadPayloads(p, chain) {
+  writeFlag(PAYLOAD_PENDING_KEY, true);
   try {
     const { loadOptionalPayloads } = await import("./kexp.js");
     // Sends only the newest Payload Manager (pldmgr.elf v0.6.3). Payload
@@ -113,14 +171,19 @@ async function autoLoadPayloads(p, chain) {
     if (failed.length) {
       log("payloads loaded: " + (loaded.join(", ") || "none") + " | failed: " + failed.join(", "), "warn");
       cstage("main:payloads-partial", failed.join(","));
+      markPayloadDelivered(false);
     } else {
       log("all payloads loaded: " + loaded.join(", "), "info");
       cstage("main:payloads-all", String(loaded.length));
+      markPayloadDelivered(loaded.length > 0);
     }
+    return { loaded: loaded, failed: failed };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     log(message, "error");
     cstage("main:payloads-error", message);
+    markPayloadDelivered(false);
+    return null;
   }
 }
 
@@ -317,11 +380,32 @@ async function main(userlandRW) {
   const result = await runKernelExploit(p, chain, log);
   cstage("main:kernel-result", result && result.done ? "done" : "stopped");
   // The second-boot guard fired: a previous chain is still up on 9021 and the
-  // kernel is already patched. This is not a failure and must not throw --
-  // throwing made the page look crashed on a run that correctly refused to
-  // double-patch. Report it and stop without re-sending payloads.
+  // kernel is already patched. Re-arming it here is the double-patch that
+  // panics the console. But "refuse to re-arm" must not mean "refuse to load
+  // the game": if the previous delivery never finished (payloads pending), the
+  // running elfldr is still waiting and this launch must hand it the payloads.
+  // A reload after a *successful* delivery skips the resend so pldmgr.elf is
+  // not installed twice.
   if (result && result.alreadyJailbroken) {
     log("already jailbroken: elfldr is up on port 9021, nothing to re-arm", "info");
+    if (payloadDeliveryPending() && !payloadDeliveredThisSession()) {
+      log("previous payload handoff did not finish - delivering to the running elfldr", "warn");
+      cstage("main:payloads", "already-jailbroken-retry");
+      const retry = await autoLoadPayloads(p, chain);
+      const retryLoaded = (retry && retry.loaded) || [];
+      const retryFailed = (retry && retry.failed) || [];
+      if (!retry || retryFailed.length || retryLoaded.length === 0) {
+        const detail = retryFailed.length ? " (failed: " + retryFailed.join(", ") + ")" : "";
+        throw new Error(
+          "payloads did not load on the already-jailbroken path" + detail +
+          " - the game will not load; power-cycle the console and relaunch",
+        );
+      }
+      log("payloads delivered to the running elfldr", "info");
+      cstage("main:payloads-done");
+      cstage("main:done", "already-jailbroken+payloads");
+      return result;
+    }
     cstage("main:done", "already-jailbroken");
     return result;
   }
@@ -332,10 +416,28 @@ async function main(userlandRW) {
     log("kernel exploit complete", "info");
     log("elfldr is listening on port 9021", "info");
     cstage("main:payloads");
-    await autoLoadPayloads(p, chain);
+    const delivery = await autoLoadPayloads(p, chain);
+    const delivered = (delivery && delivery.loaded) || [];
+    const failed = (delivery && delivery.failed) || [];
     cstage("main:payloads-done");
+    // A run whose payloads never reached the loader is a failed run: the
+    // kernel chain completed but the game cannot load. Throwing here lets
+    // site.js mark the run failed, so the next launch's red banner names the
+    // payload handoff instead of showing "ok" over a dead session.
+    if (!delivery || failed.length || delivered.length === 0)
+      throw new Error(
+        "kernel exploit passed but the payloads did not load" +
+        (failed.length ? " (failed: " + failed.join(", ") + ")" : "") +
+        " - the game will not load",
+      );
+    log("payloads loaded: " + delivered.join(", "), "info");
   } else {
-    log("kernel chain complete: root and sandbox escape are active", "info");
+    // The chain escalated but the elfldr never confirmed up, so there is
+    // nothing to hand the payloads to. That is a failed run for the user's
+    // goal (loading a game), not a quiet success.
+    throw new Error(
+      "kernel chain completed but the elfldr did not come up - payloads cannot load",
+    );
   }
   cstage("main:done");
 }

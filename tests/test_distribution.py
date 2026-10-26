@@ -90,6 +90,50 @@ class DistributionTests(unittest.TestCase):
             self.assertNotIn(b"payloads/shadowmountplus.elf", manifest)
             self.assertNotIn(b"payloads/elfldr-ps5-1360.elf", manifest)
 
+    def test_manifest_update_stays_small_and_payload_handoff_is_reported(self):
+        # "Kernel exploit passes but the game does not load" had three causes:
+        # a ~6 MB manifest update that lost the race against the auto-running
+        # chain, an already-jailbroken path that returned without delivering
+        # payloads, and payload failures swallowed so a failed handoff reported
+        # success. Each invariant below must ship in the staged Pages tree.
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary) / "pages"
+            stage_stable(output)
+            relapse = output / "relapse"
+            manifest = (relapse / "cache.appcache").read_bytes()
+
+            # The two loading GIFs are 5.74 MB of the old ~6.08 MB update. They
+            # are decorative and served over NETWORK: *, so listing them only
+            # makes the cache update too big to converge before the chain arms.
+            self.assertNotIn(b"loading-astro.gif", manifest)
+            self.assertNotIn(b"loading-astro3.gif", manifest)
+            # A ~600 KB update is the point; keep the manifest honest.
+            self.assertLess(len(manifest), 4096)
+
+            # The build stamp and the manifest version must agree, or the
+            # "check the build stamp" recovery protocol names the wrong build
+            # and a cached console never converges.
+            site = (relapse / "src/site.js").read_bytes()
+            stamp = site.split(b'const BUILD = "', 1)[1].split(b'";', 1)[0]
+            self.assertIn(b"# version " + stamp + b" #", manifest)
+
+            # The handoff must report failures instead of returning quietly:
+            # a run that delivers no payload cannot load a game.
+            main = (relapse / "src/main.js").read_bytes()
+            self.assertIn(b"ps5expweb_payload_pending", main)
+            self.assertIn(b"payloadDeliveryPending", main)
+            self.assertIn(b"payloads did not load", main)
+            self.assertIn(b"elfldr did not come up", main)
+            # The already-jailbroken path retries a pending handoff rather than
+            # returning without sending pldmgr.elf to the running loader.
+            self.assertIn(b"previous payload handoff did not finish", main)
+
+            # A single dropped request on the multi-megabyte payload used to
+            # end the run; the fetch retries before giving up.
+            kexp = (relapse / "src/kexp.js").read_bytes()
+            self.assertIn(b"fetchBinaryOnce", kexp)
+            self.assertIn(b"const attempts = 3", kexp)
+
 
 if __name__ == "__main__":
     unittest.main()

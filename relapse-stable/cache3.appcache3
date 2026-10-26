@@ -1,11 +1,9 @@
 CACHE MANIFEST
-# version 2026-10-26h pipe-restore #
+# version 2026-10-26i fast-cache #
 
 appcache_handler.js
 custom_host_stuff.js
 index.html
-loading-astro.gif
-loading-astro3.gif
 README.md
 offsets/10.00.js
 offsets/10.01.js

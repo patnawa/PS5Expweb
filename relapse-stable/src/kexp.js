@@ -255,15 +255,7 @@ function resolveSymbols(p, log) {
 // [OFFLINE FIX] fetch() no pasa por la appcache en WebKit.
 // XMLHttpRequest sí. Usamos XHR con responseType="arraybuffer".
 // Cuando el fichero viene de la appcache, xhr.status es 0, no 200.
-function fetchBinary(config, name) {
-  // Payloads are intentionally NOT in the appcache manifest: while an update
-  // downloads, AppCache serves the old copy of every listed file, which is how
-  // a console could re-run a payload the network had already replaced. With
-  // them off the manifest this XHR always goes to the network. GitHub Pages
-  // HTTP-caches for 10 minutes, so the revision key busts that window too:
-  // bump window.__payloadRev (site.js) whenever the shipped payloads change.
-  const rev = typeof window.__payloadRev === "string" ? window.__payloadRev : "";
-  const url = ((config && config.payloadUrl) || "payloads/") + name + (rev ? "?rv=" + rev : "");
+function fetchBinaryOnce(url) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("GET", url, true);
@@ -288,6 +280,37 @@ function fetchBinary(config, name) {
     };
     xhr.send();
   });
+}
+
+// Payloads are intentionally NOT in the appcache manifest: while an update
+// downloads, AppCache serves the old copy of every listed file, which is how
+// a console could re-run a payload the network had already replaced. With
+// them off the manifest this XHR always goes to the network. GitHub Pages
+// HTTP-caches for 10 minutes, so the revision key busts that window too:
+// bump window.__payloadRev (site.js) whenever the shipped payloads change.
+//
+// A 2.8 MB payload over a PS5's WiFi link can lose a single request to a
+// transient network error or a slow first byte; that one failure used to end
+// the whole run as "game not load". Retry network/timeout/5xx failures a
+// couple of times (never a 4xx: a missing payload will stay missing). The
+// retry is pure network I/O, so it is safe even mid-chain.
+async function fetchBinary(config, name) {
+  const rev = typeof window.__payloadRev === "string" ? window.__payloadRev : "";
+  const url = ((config && config.payloadUrl) || "payloads/") + name + (rev ? "?rv=" + rev : "");
+  const attempts = 3;
+  let lastError = null;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      return await fetchBinaryOnce(url);
+    } catch (e) {
+      lastError = e;
+      const message = String((e && e.message) || e);
+      const permanent = message.indexOf("HTTP 4") >= 0;
+      if (permanent || attempt === attempts) break;
+      await new Promise((resolve) => setTimeout(resolve, 400 * attempt));
+    }
+  }
+  throw lastError || new Error("kexp: GET " + url + " failed");
 }
 
 function patchShellcode(blob, symbols) {

@@ -202,8 +202,13 @@ re-running the chain against stale payloads across reboots — the exact
 the loop because the ~7 MB update kept losing the race against the crash.
 
 Fixes (commit `174ed93`): payload ELFs removed from the manifest (`NETWORK: *`
-routes their XHRs to the network and the update evicts the old copies, and the
-manifest update shrinks from ~7 MB to ~500 KB so convergence beats the crash);
+routes their XHRs to the network and the update evicts the old copies). **The
+"~500 KB" figure in this section was wrong:** removing the five payload ELFs
+left the two loading GIFs in the manifest, so the update was still ~6.08 MB
+(5.74 MB of GIFs) — barely smaller than the ~7 MB it replaced, and still slow
+enough to lose the race on a PS5's link. The 2026-10-26i fix below takes those
+GIFs out of the manifest and drops the update to ~600 KB, which is what the
+convergence argument required;
 `site.js` awaits `__appcacheSettled()` before starting the chain — it waits
 out CHECKING/DOWNLOADING, swaps and reloads on `updateready` (safe, nothing
 armed yet), and resolves `current`/`error`/`timeout` otherwise with a 20 s
@@ -227,9 +232,9 @@ prerequisite Y2JB documents).
 - Tests: 14 Python + 3 Node pass; CI green on every push; staged build
   verified with the same invariants before each deploy.
 - Live: `https://patnawa.github.io/PS5Expweb/relapse/`, build stamp
-  `2026-10-26g safe-escalate`, manifest `# version 2026-10-26g safe-escalate #`
-  with zero payload entries, kstuff served over the network at 1,737,080
-  bytes / SHA-256 prefix `ab9a6cb4…`.
+  `2026-10-26i fast-cache`, manifest `# version 2026-10-26i fast-cache #`
+  with zero payload and zero GIF entries, kstuff served over the network at
+  1,737,080 bytes / SHA-256 prefix `ab9a6cb4…`.
 - Regression tests added: `test_distribution.py::
   test_staged_stable_tree_ships_second_boot_guard` (guard code present,
   payloads absent from the manifest, gate present in both files, manifest
@@ -245,7 +250,7 @@ On the console:
 
 1. Launch the shortcut; the first launch performs the small update and
    reloads itself.
-2. Confirm the log line `Build: 2026-10-26h pipe-restore`. No build line means
+2. Confirm the log line `Build: 2026-10-26i fast-cache`. No build line means
    a stale cache — relaunch once; if still missing, clear the app's cache.
 3. Run one cycle. With the build line visible, the stale-payload path is
    excluded by construction; the CrashLog red banner's last stage (persisted
@@ -418,10 +423,72 @@ original kmalloc buffer and zeroed ring counters. All three tests were red
 before the fix (reproducing `master->buffer = NULL`, `victim->buffer =
 master struct`, and the unrestored shellcode pair) and are green after.
 
+### "Kernel exploit passes, game does not load" — the payload handoff (2026-10-26i)
+
+The reported shape is narrower than the reboot panic: the kernel chain
+completes and prints its success line, but the game never loads, and the console
+will not come back without holding the power button. That is the payload
+handoff, not the escalation. Three defects in the handoff path explain it.
+
+1. **The update was still ~6 MB, so the "convergence beats the crash" argument
+   was never satisfied.** Commit `174ed93` took the five payload ELFs out of the
+   manifest, but left `loading-astro.gif` (4.03 MB) and `loading-astro3.gif`
+   (1.72 MB) in it. Measured manifest total: **6,379,487 bytes (6.08 MiB)**, of
+   which 5,745,028 bytes are the two GIFs — the update shrank by less than 1 MB
+   against the ~7 MB it replaced. A manifest bump therefore still forces a
+   ~6 MB re-download on a link that has to lose a race against an auto-running
+   chain, and a console that had cached an older build can still stall in
+   "Download cache...". The GIFs are decorative and already served over the
+   network like everything else; they are now out of the manifest, dropping the
+   update to ~600 KB. `NETWORK: *` keeps them loading normally online, and the
+   offline loss is irrelevant for the same reason the payloads' offline loss is
+   (the page cannot be reached offline in the first place).
+
+2. **The already-jailbroken path returned without delivering payloads.** On a
+   relaunch after a successful kernel run — the normal "game did not load, try
+   again" action — the chain hits the second-boot guard, logs "already
+   jailbroken: elfldr is up on port 9021, nothing to re-arm", and **returns**.
+   The elfldr is running and waiting, but nothing ever sends it `pldmgr.elf`, so
+   Payload Manager, kstuff and shadowmountplus are never installed and the game
+   cannot load. Refusing to re-arm the kernel is correct; refusing to deliver the
+   payloads is not. The guard now distinguishes the two: if a delivery was left
+   pending by a previous launch (`ps5expweb_payload_pending` in localStorage),
+   the already-jailbroken path hands the payloads to the running loader; only a
+   run whose delivery already succeeded skips the resend (tracked per session in
+   `sessionStorage`, so a plain reload does not install `pldmgr.elf` twice).
+
+3. **Every payload failure was swallowed, so a failed handoff reported success.**
+   `autoLoadPayloads` caught its own errors and returned normally, and `main()`
+   called `cstage("main:done")` regardless. A run that fetched nothing, or whose
+   ELF never reached the loader, printed "kernel exploit complete" and left the
+   CrashLog with a finished/ok session — while the user saw a game that would not
+   load. A 2.8 MB payload over WiFi losing one request to a transient network
+   error was enough. The handoff now:
+   - retries the payload fetch up to 3 times on network/timeout/5xx failures
+     (never on 4xx — a missing file stays missing), with a short backoff;
+   - returns the real `{loaded, failed}` outcome instead of swallowing it;
+   - throws when nothing loaded or anything failed, so `site.js` marks the run
+     failed and the next launch's red banner names the payload handoff instead
+     of showing "ok" over a dead session;
+   - throws when the chain escalated but the elfldr never confirmed up, because
+     there is then nothing to hand the payloads to and the game cannot load.
+
+   The reload-after-success case stays quiet: the guard logs the already-
+   jailbroken line and returns without throwing, so a correct no-op is not
+   reported as a crash.
+
+Recovery for a console already stuck: hold the power button ~15 s, unplug ~30 s,
+boot, delete the app's saved data (or reinstall the pkg) to drop the half-finished
+cache update, then launch once and confirm `Build: 2026-10-26i fast-cache` in the
+log before running a cycle. The build stamp is the only reliable signal that the
+new manifest — and therefore the small update — is actually in effect.
+
 ### Open items
 
 - Hardware confirmation of the full fix chain (no console access in this
   workspace; `consoleTested` remains false for the built pkgs).
+- The payload retry and the pending-delivery retry have no automated coverage
+  yet; both are exercised only by the console protocol above.
 - App icon change (requires a pkg rebuild — the icon lives in the package).
 - Jailbreak running-status UI overhaul (deferred by the user until after the
   bug fix).

@@ -123,7 +123,7 @@ If a launch shows "Download cache..." and then hangs:
    Data → Delete → select the app) or delete and reinstall the pkg. This removes
    the half-finished cache update.
 3. Launch once. It loads from the network, downloads the cache, waits for it to
-   settle, then runs. Expect `Build: 2026-10-26g safe-escalate` and a
+   settle, then runs. Expect `Build: 2026-10-26i fast-cache` and a
    `Cache at start:` line.
 
 If the console still will not boot or restart cleanly, use Safe Mode (hold power
@@ -138,11 +138,47 @@ how long the run stayed alive, and the last log line. **Copy log** exports the
 full record. The same lines are mirrored to `localStorage`, so they survive the
 process death that kills the on-screen log.
 
-Confirm the build stamp `Build: 2026-10-26g safe-escalate` appears in the log. If
+Confirm the build stamp `Build: 2026-10-26i fast-cache` appears in the log. If
 it is missing, the console is running a stale cache; relaunch once and, if it
 persists, clear the app's cache. Payloads are served over the network, so the
 console needs network access to this host when the chain reaches the payload
 handoff.
+
+### "Kernel exploit passes but the game does not load"
+
+If the log shows the kernel chain completing (root and sandbox escape active,
+`elfldr is listening on port 9021`) and the game still never starts, the failure
+is in the payload handoff, not the kernel exploit. Three things to check, in
+order:
+
+1. **Did the payload actually load?** The log now ends with
+   `payloads loaded: pldmgr.elf` or a hard error naming the failure. A run that
+   ends silently, or ends with "kernel chain complete" and no payload line, did
+   not deliver. Payload Manager installs kstuff and shadowmountplus; without it
+   nothing mounts and no game launches.
+2. **Was this a relaunch after a successful chain?** The second-boot guard
+   refuses to re-arm an already-patched kernel — correct — but the previous
+   launch may have died before the payload reached the loader. The guard now
+   retries the handoff on that path when a delivery is left pending
+   (`ps5expweb_payload_pending` in localStorage). If the log says
+   `previous payload handoff did not finish`, the retry is running; if it ends in
+   "payloads did not load on the already-jailbroken path", the loader refused
+   the ELF and the console needs a power cycle.
+3. **Is the payload reachable?** The ELF is 2.8 MB and is fetched over the
+   network on purpose (it is deliberately not appcached). A single dropped
+   request used to end the run; it now retries up to three times. If it still
+   fails, the console cannot reach this host's payload URL — check the LAN
+   address and that the server is still running.
+
+Do not close the app or navigate away while a chain is running; an armed chain
+loses its webview and can panic the kernel.
+
+The payload handoff is now retried and reported: a transient network failure on
+the ~2.8 MB payload manager no longer ends the run as a silent "game not load".
+If the payloads do not reach the loader, the page marks the run failed and the
+next launch's red banner names the payload handoff. If a previous handoff did
+not finish (the webview died mid-delivery), the already-jailbroken path sends
+the payloads to the running elfldr instead of doing nothing.
 
 For first-time caching, the PS5 must reach this local server and finish its
 cache download. Reopen the same URL after caching; changing host or port changes
