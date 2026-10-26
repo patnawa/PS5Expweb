@@ -8,6 +8,7 @@ const SYS_CLOSE = 0x006;
 const SYS_MUNMAP = 0x049;
 const SYS_SOCKET = 0x061;
 const SYS_CONNECT = 0x062;
+const SYS_SETSOCKOPT = 0x069;
 const SYS_MMAP = 0x1dd;
 const SYS_JITSHM_CREATE = 0x215;
 const SYS_JITSHM_ALIAS = 0x216;
@@ -80,6 +81,7 @@ const NEEDED = {
     "sysctlbyname",
     "pthread_create",
     "pthread_join",
+    "pthread_detach",
     "getpid",
   ],
   libc: ["malloc", "free", "memcpy", "memset", "strcmp", "memcmp", "vsnprintf"],
@@ -571,14 +573,48 @@ async function spawnAndJoin(entry, args, symbols, p, chain, log) {
     throw new Error("kexp: pthread_create_name_np returned " + hex(created));
 
   const thread = p.read8(handle);
-  log("thread " + hex(thread) + " created, joining");
 
+  // Prefer pthread_detach over pthread_join. The shellcode thread can become
+  // the elfldr server loop and never return; a join on it blocks the ROP
+  // worker inside the kernel forever. That is the shutdown/restart freeze:
+  // the worker stays parked in pthread_join, so the teardown in the finally
+  // block never runs, the exploit pipes stay armed, and the kernel panics when
+  // the app is killed at power-off. Detaching lets the worker reach the
+  // teardown that restores those pipes, while the elfldr keeps serving in the
+  // background. Fall back to the join only when pthread_detach is unresolved.
+  if (offsets.pthread_detach !== undefined) {
+    log("thread " + hex(thread) + " created, detaching");
+    const detached = await chain.call(
+      base.add32(offsets.pthread_detach),
+      thread,
+    );
+    const rv = detached.low >>> 0;
+    // A non-zero detach return is not a shellcode crash: EINVAL just means the
+    // thread was already detached (or detached itself), and the thread still
+    // runs. Report it and continue rather than aborting a run whose kernel
+    // state is already armed -- throwing here would skip the teardown that
+    // restores the pipes.
+    if (rv !== 0)
+      log("detach returned " + hex(detached) + " (thread still runs, continuing)");
+    return {
+      joinResult: 0,
+      shellcodeResult: new int64(0, 0),
+      detached: true,
+      detachResult: rv,
+    };
+  }
+
+  log("thread " + hex(thread) + " created, joining");
   const joined = await chain.call(
     base.add32(offsets.pthread_join),
     thread,
     result,
   );
-  return { joinResult: joined.low >>> 0, shellcodeResult: p.read8(result) };
+  return {
+    joinResult: joined.low >>> 0,
+    shellcodeResult: p.read8(result),
+    detached: false,
+  };
 }
 
 // ============================================================================
@@ -644,6 +680,21 @@ async function mapElfIntoUserland(name, p, chain, config) {
 
 async function sendElfToElfldr(name, payload, p, chain) {
   const fd = await connectToElfldr(p, chain);
+
+  // A blocking SYS_WRITE to an elfldr that has stopped reading fills the socket
+  // buffer and never returns. That leaves the ROP worker thread parked inside
+  // the kernel: the app can never close, and the console hangs on
+  // shutdown/restart until the power button is held. Set a send timeout so a
+  // stuck write returns EWOULDBLOCK/EAGAIN instead of blocking forever; the
+  // handoff then reports a failure the teardown path can act on. Best effort:
+  // a socket without a timeout is still better than no handoff at all.
+  try {
+    const tv = p.malloc(16);
+    for (let i = 0; i < 16; i += 4) p.write4(tv.add32(i), 0);
+    p.write4(tv, 10); // tv_sec = 10, tv_usec = 0
+    await chain.syscall(SYS_SETSOCKOPT, fd, 0xffff, 0x20, tv, 16);
+  } catch (e) {}
+
   try {
     for (let offset = 0; offset < payload.size; ) {
       const length = Math.min(0x10000, payload.size - offset);

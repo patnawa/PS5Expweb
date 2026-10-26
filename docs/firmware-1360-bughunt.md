@@ -232,7 +232,7 @@ prerequisite Y2JB documents).
 - Tests: 14 Python + 3 Node pass; CI green on every push; staged build
   verified with the same invariants before each deploy.
 - Live: `https://patnawa.github.io/PS5Expweb/relapse/`, build stamp
-  `2026-10-26i fast-cache`, manifest `# version 2026-10-26i fast-cache #`
+  `2026-10-26j teardown-safety`, manifest `# version 2026-10-26j teardown-safety #`
   with zero payload and zero GIF entries, kstuff served over the network at
   1,737,080 bytes / SHA-256 prefix `ab9a6cb4…`.
 - Regression tests added: `test_distribution.py::
@@ -250,7 +250,7 @@ On the console:
 
 1. Launch the shortcut; the first launch performs the small update and
    reloads itself.
-2. Confirm the log line `Build: 2026-10-26i fast-cache`. No build line means
+2. Confirm the log line `Build: 2026-10-26j teardown-safety`. No build line means
    a stale cache — relaunch once; if still missing, clear the app's cache.
 3. Run one cycle. With the build line visible, the stale-payload path is
    excluded by construction; the CrashLog red banner's last stage (persisted
@@ -479,9 +479,57 @@ handoff, not the escalation. Three defects in the handoff path explain it.
 
 Recovery for a console already stuck: hold the power button ~15 s, unplug ~30 s,
 boot, delete the app's saved data (or reinstall the pkg) to drop the half-finished
-cache update, then launch once and confirm `Build: 2026-10-26i fast-cache` in the
+cache update, then launch once and confirm `Build: 2026-10-26j teardown-safety` in the
 log before running a cycle. The build stamp is the only reliable signal that the
 new manifest — and therefore the small update — is actually in effect.
+
+### "The console will not restart or shut down" — the teardown deadlock (2026-10-26j)
+
+The reported shape: the kernel chain completes (the elfldr answers on 9021, the
+success line prints), but the game never loads and the console hangs when the
+user tries to restart or power it off. Holding the power button is the only way
+out. Three defects in the end-of-run path explain it; all three are fixed here.
+
+1. **`fd_jdir` was set to NULL during escalation.** `escalate()` pointed the
+   process's jail directory at zero and left the teardown to put the original
+   back. The app-close path runs `AutoMount::UsbMass::fakeEjection()`, which
+   walks this process's directory tree and takes references it never returns;
+   a NULL jdir sends that walk into a NULL dereference. If the teardown never
+   ran — the webview killed mid-chain, a reboot issued while a payload was in
+   flight, an OOM kill — the walk hit NULL and the console froze on shutdown.
+   `escalate()` now points `fd_jdir` at `rootvnode` instead: the walk stays
+   valid in every case and the jail directory is no longer the process's view of
+   `/`. The original value is snapshotted before the write (line 1630) and
+   `restoreEscalation()` still puts it back, so the change is reversible.
+
+2. **The payload handoff could block forever on a socket write.**
+   `sendElfToElfldr` writes the 2.8 MB payload in 64 KB chunks with a blocking
+   `SYS_WRITE`. If the elfldr stops reading — it crashed, it is wedged, its
+   accept loop is not draining — the socket buffer fills and the write never
+   returns. The ROP worker thread is then parked inside the kernel, the app can
+   never close, and the console hangs on shutdown/restart. The handoff now sets
+   a 10 s send timeout with `setsockopt(SO_SNDTIMEO)` before writing, so a stuck
+   write returns `EWOULDBLOCK`/`EAGAIN` and the failure surfaces as a reported
+   payload error the teardown path can act on. Best effort: a socket without the
+   timeout is still better than no handoff at all.
+
+3. **`pthread_join` on the shellcode thread could never return.** `kexp.js`
+   created the shellcode thread and joined it with no timeout. When that thread
+   is the elfldr server loop it does not exit, so the join blocked the worker
+   indefinitely — the `finally` block that restores the crossed shellcode pipes
+   never ran, and the pipes stayed armed. That is the panic at app close. The
+   thread is now detached (`pthread_detach`) when the symbol resolves, falling
+   back to the join only when it does not; a non-zero detach return is reported
+   as a detach failure rather than a shellcode crash, because the thread still
+   runs and throwing there would skip the teardown. Because "thread created" no
+   longer proves the loader came up, `run()` polls `127.0.0.1:9021` for up to 5 s
+   after the launch and reports a loader that never answered.
+
+Ordering note: the elfldr launch runs while the exploit pipes are still armed
+(the shellcode needs the kernel R/W to patch), so the socket timeout and the
+detach are what keep that window from becoming a permanent one. The pipe restore
+still runs in the `finally`, and the `jdir` fix makes the close-time walk safe
+even if the teardown is never reached.
 
 ### Open items
 
@@ -489,6 +537,11 @@ new manifest — and therefore the small update — is actually in effect.
   workspace; `consoleTested` remains false for the built pkgs).
 - The payload retry and the pending-delivery retry have no automated coverage
   yet; both are exercised only by the console protocol above.
+- The detach path's elfldr poll is not covered by the mock-kernel tests; it is
+  exercised only on hardware.
+- If the console still freezes on shutdown after these fixes, the remaining
+  suspect is a kernel thread left in an uninterruptible wait by the shellcode
+  itself, which userland cannot release.
 - App icon change (requires a pkg rebuild — the icon lives in the package).
 - Jailbreak running-status UI overhaul (deferred by the user until after the
   bug fix).
