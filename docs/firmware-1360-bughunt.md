@@ -245,7 +245,7 @@ On the console:
 
 1. Launch the shortcut; the first launch performs the small update and
    reloads itself.
-2. Confirm the log line `Build: 2026-10-26g safe-escalate`. No build line means
+2. Confirm the log line `Build: 2026-10-26h pipe-restore`. No build line means
    a stale cache — relaunch once; if still missing, clear the app's cache.
 3. Run one cycle. With the build line visible, the stale-payload path is
    excluded by construction; the CrashLog red banner's last stage (persisted
@@ -358,6 +358,65 @@ pointer checks at runtime (`pid` range test, `isKernelPointer` on the dynlib
 pointer), so a wrong value stops the chain instead of corrupting memory — but a
 wrong value that happens to look plausible would still pass. Confirming those
 two offsets needs a console or a firmware dump.
+
+### Pipe teardown end state — the reboot/shutdown panic (2026-10-26h)
+
+The reported "works the first time, freezes the console after a reboot"
+signature survived every earlier fix because the failure is not during the
+run: it is in what the run leaves behind for the kernel's **process-exit**
+path. The kernel frees `pipe->buffer` when the app closes — and a console
+reboot/shutdown kills the webview, which walks every armed structure. Y2JB's
+own test comment states the rule plainly (`CLOSE_PIPES_AFTER_RUN`):
+*"closing the 4 pipe fds now — if the console dies here, freeing an armed pipe
+buffer is what kills it."*
+
+Two chains of pipe state were left armed at end of run:
+
+1. **The exploit pair.** `restorePipes()` null-ed `master->buffer` through the
+   crossed window and verified the result, ending with
+   `master->buffer = NULL` and `victim->buffer = master's struct` — the armed
+   state. The kernel then frees the master's `struct pipe` as a pipe buffer
+   and the victim's buffer as a second copy of it: a cross-zone/double free.
+   Whether that panics depends on adjacent heap state, which is why the
+   freezes were intermittent. The reference implementation (Y2JB
+   `cleanTeardown`, the 10/10-reboot-stable comparison target) does **not**
+   end there: `savePipeBuffers()` records both real kmalloc buffers before the
+   crossing and `restoreRealBuffers()` puts them back — *"the pair now looks
+   like an ordinary used pipe"* — falling back to `disarmPipes()` (zero both
+   buffers). Our port had neither routine. It also cannot be fixed with the
+   fast window alone: the crossing IS `master->buffer = victim struct`, and
+   restoring that pointer destroys the window the remaining field writes
+   need — one struct always ends armed. The real-buffer restore must go
+   through the slow sysctl window, which in turn means the sysctl OID kinds
+   must not be restored first (that machinery IS the slow writer — Y2JB's
+   `SKIP_OID_RESTORE: the slow window cannot restore its own writable kind`
+   exists for exactly this ordering).
+
+2. **The shellcode pair.** `kexp.js` creates and crosses a *second* pipe pair
+   for the kexp shellcode (`prepareShellcodePipes`) and nothing ever restored
+   it. Y2JB hands its already-crossed exploit pair to the same shellcode and
+   restores that one in `cleanTeardown`; our port re-crossed a fresh pair and
+   dropped it.
+
+Fixes (this commit): `crossPipes()` saves both real buffers
+(`savePipeBuffers`); the teardown restores them via the slow window with
+read-back verification (`restoreRealBuffers`), falling back to zeroing both
+(`disarmPipes`) and never to the old null-through-the-window routine;
+`kexp.js` saves the shellcode pair's buffers and `restoreShellcodePipes()`
+puts them back in a `finally` around the shellcode thread (a crashed shellcode
+leaves the pair armed otherwise); `restoreOids()` now restores only the plain
+fields (`b.visible`, `a.deadSink`, walk counter) and reports honestly that
+the OID kinds/arg1 steering stay hijacked until reboot — the empirically
+tolerated state the Y2JB reference ships with (its `SKIP_OID_RESTORE` runs
+every one of its 10/10 reboot/shutdown trials).
+
+Regression tests: `tests/kernel_teardown.test.cjs` drives the real
+`crossPipes`/`restoreKernelState` and the real `kexp.js` seam against a mock
+kernel (faithful pipe-ring semantics, blocking read on empty) and asserts the
+close-safety invariant: every pipe struct the chain crosses must end with its
+original kmalloc buffer and zeroed ring counters. All three tests were red
+before the fix (reproducing `master->buffer = NULL`, `victim->buffer =
+master struct`, and the unrestored shellcode pair) and are green after.
 
 ### Open items
 
