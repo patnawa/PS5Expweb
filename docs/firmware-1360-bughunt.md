@@ -252,6 +252,29 @@ On the console:
    in `localStorage` across reboots) then names the failing stage and the
    remaining suspects are few.
 
+### Upstream re-inspection 2026-10-26
+
+The deployed host at `https://ps5xploit.github.io/relapse/` was re-fetched file
+by file and compared against a full clone of `ps5xploit/relapse` at `HEAD`
+(`main`): every text asset, the entry page and the manifest are byte-identical
+apart from CRLF line endings. The live host therefore still ships the unpatched
+source described above — all five confirmed defects plus the three freeze
+causes remain. The `kstuff.elf` in that tree is 1,802,280 bytes (the dev/test
+build); the payloads are still listed in its manifest (55 cache entries, 5 of
+them payloads); it has no crash log, no attempt cap (`webkit.js` retries
+indefinitely), no `__appcacheSettled` gate and no `alreadyJailbroken` guard.
+Our fixes exist only in `relapse-stable/` and in the staged Pages artifact;
+upstream has not absorbed them.
+
+Two consequences for users:
+
+1. Loading the upstream URL directly runs the crashing build. The shortcut and
+   the local server must point at the hardened host instead.
+2. `python serve.py` used to serve the upstream snapshot by default, so a local
+   run reproduced the upstream crash even though the repository held the fix.
+   Default mode now stages and serves `relapse-stable/`; `--snapshot` serves the
+   unpatched bytes for provenance checks only and prints a warning.
+
 ### Open items
 
 - Hardware confirmation of the full fix chain (no console access in this

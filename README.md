@@ -22,9 +22,10 @@ automatically on supported consoles. See
 
 The [shortcut client](client/README.md) is configured for this GitHub Pages URL.
 Download rebuilt packages from [Releases](https://github.com/patnawa/PS5Expweb/releases).
-The active Pages source is branch `diagnostic-site`, which contains only the
-diagnostic website. The local main-branch workflow also stages only diagnostics.
-The separate legacy staging tool preserves the imported Relapse source bytes.
+The Pages workflow on `main` runs the tests, stages `relapse-stable/` with
+`tools/stage_stable.py`, and deploys the hardened host at `/relapse/` plus the
+diagnostics page at `/diagnostics/`. The imported upstream snapshot in `relapse/`
+stays untouched and is served only for provenance checks.
 
 The host linked in [mour0ne's post](https://bsky.app/profile/mour0ne.bsky.social/post/3mxjfk5x2gk2h)
 is already copied into `relapse/`: 56 files from the deployed site, including
@@ -40,17 +41,50 @@ python serve.py --check
 python serve.py
 ```
 
+`python serve.py` serves the **hardened host** from `relapse-stable/`. It stages
+the tree exactly as the Pages workflow does (into `.local/serve-build/`) and
+verifies the guard markers before listening: bounded WebKit attempts, the
+AppCache settle gate, the already-patched refusal, and payloads routed to the
+network instead of the manifest. This is the mode to use for console runs.
+
 Open `http://<this-PC-LAN-IP>:8080/relapse/` on the PS5, on the same network.
 Use `ipconfig` to find the PC's LAN IPv4 address. Keep the server running;
-Ctrl+C stops it. The imported page starts automatically on a supported PS5.
-The PC preview is `http://127.0.0.1:8080/relapse/`; that loopback address on
-the PS5 would refer to the PS5 itself. If Windows prompts, allow Python on
-your private network. Change the port with `python serve.py --port 8000`.
+Ctrl+C stops it. The page starts automatically on a supported PS5. The PC
+preview is `http://127.0.0.1:8080/relapse/`; that loopback address on the PS5
+would refer to the PS5 itself. If Windows prompts, allow Python on your private
+network. Change the port with `python serve.py --port 8000`.
 
-The server verifies all snapshot hashes before startup, sends the cache
-manifest as `text/cache-manifest`, and serves only imported Relapse assets.
-Its root redirects to `/relapse/`. The repository's original root `index.html`
-is the older 3.xx–4.xx host and is not the 13.60 entry point.
+The server sends the cache manifest as `text/cache-manifest` and its root
+redirects to `/relapse/`. The repository's original root `index.html` is the
+older 3.xx–4.xx host and is not the 13.60 entry point.
+
+### The upstream snapshot is not the console host
+
+`relapse/` is the untouched upstream source. It still ships the stale-payload
+AppCache and the stacked heap sprays that freeze the console on a second boot.
+Serve it only to verify provenance, never for a real run:
+
+```powershell
+python serve.py --check --snapshot
+python serve.py --snapshot
+```
+
+To serve a prebuilt Pages tree without staging it again, use
+`python serve.py --staged --staged-dir build/pages-stable`.
+
+### Crash diagnostics
+
+The hardened host arms a durable crash log before the exploit starts. If the
+console freezes, relaunch the page: a red banner shows the last stage reached,
+how long the run stayed alive, and the last log line. **Copy log** exports the
+full record. The same lines are mirrored to `localStorage`, so they survive the
+process death that kills the on-screen log.
+
+Confirm the build stamp `Build: 2026-10-26e net-payloads` appears in the log. If
+it is missing, the console is running a stale cache; relaunch once and, if it
+persists, clear the app's cache. Payloads are served over the network, so the
+console needs network access to this host when the chain reaches the payload
+handoff.
 
 For first-time caching, the PS5 must reach this local server and finish its
 cache download. Reopen the same URL after caching; changing host or port changes

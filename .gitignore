@@ -2,5 +2,7 @@ __pycache__/
 *.pyc
 .local/
 build/
+# Verbatim upstream clone kept for byte-comparison; not part of the build.
+relapse_src/
 tools/client-builder/bin/
 tools/client-builder/obj/

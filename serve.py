@@ -1,15 +1,35 @@
-"""Serve the pinned Relapse snapshot on a local network (Python 3.9+)."""
+"""Serve the PS5 exploit host on a local network (Python 3.9+).
+
+Default mode serves the hardened host from ``relapse-stable/`` -- the tree that
+carries the crash fixes (bounded WebKit attempts, verified kernel teardown, the
+already-patched guard and the AppCache settle gate). It is staged exactly like
+the GitHub Pages artifact, so a console that loads this server runs the same
+bytes the live site ships.
+
+``--snapshot`` serves the untouched upstream snapshot in ``relapse/`` instead.
+That mode exists for provenance checks: its 56 files are pinned by SHA-256 in
+``docs/sources/mour0ne-snapshot.json`` and must never be edited in place.
+
+Serving the upstream snapshot by default was the trap this script now avoids:
+``python serve.py`` used to hand the console the unpatched Relapse source, whose
+stale-payload AppCache path and stacked heap sprays are the documented causes of
+the second-boot console freeze. The README tells users to run ``python serve.py``;
+that command must serve the fixed host.
+"""
 
 import argparse
 import hashlib
 import json
+import shutil
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 ROOT = Path(__file__).resolve().parent
 SNAPSHOT = ROOT / "relapse"
+STABLE = ROOT / "relapse-stable"
 PROVENANCE = ROOT / "docs/sources/mour0ne-snapshot.json"
+DEFAULT_BUILD_DIR = ROOT / ".local/serve-build"
 
 
 def snapshot_files():
@@ -50,6 +70,63 @@ def verify_snapshot():
         if required not in assets:
             raise ValueError(f"Required 13.60 asset missing from cache: {required}")
     return len(files), len(assets)
+
+
+def verify_staged_tree(tree):
+    """Check the invariants that make the hardened host safe to run.
+
+    These are structural checks, not version strings: the build stamp and the
+    manifest version line change with every fix. The point is to refuse to serve
+    a tree that lost the second-boot guard or re-listed payloads in the manifest,
+    because either one reintroduces the console freeze.
+    """
+    tree = Path(tree).resolve()
+    relapse = tree / "relapse"
+    entry = relapse / "index.html"
+    if not entry.is_file():
+        raise ValueError(f"Staged tree missing entry point: {entry}")
+    html = entry.read_bytes()
+    if b'manifest="cache.appcache"' not in html:
+        raise ValueError("Staged index.html does not reference cache.appcache")
+    if b'manifest="cache3.appcache3"' in html:
+        raise ValueError("Staged index.html still references the source manifest name")
+
+    manifest = relapse / "cache.appcache"
+    if not manifest.is_file():
+        raise ValueError("Staged cache.appcache is missing")
+    manifest_bytes = manifest.read_bytes()
+    if manifest_bytes != (STABLE / "cache3.appcache3").read_bytes():
+        raise ValueError("Staged manifest drifted from relapse-stable/cache3.appcache3")
+    text = manifest_bytes.decode("utf-8-sig")
+    if not text.startswith("CACHE MANIFEST"):
+        raise ValueError("Invalid staged cache manifest header")
+    if "NETWORK:" not in text or "*" not in text:
+        raise ValueError("Staged manifest does not route network assets")
+    for cached in ("payloads/kstuff.elf", "payloads/pldmgr.elf",
+                   "payloads/shadowmountplus.elf", "payloads/elfldr-ps5-1360.elf"):
+        if cached in text:
+            raise ValueError(f"Staged manifest still caches payload {cached}")
+
+    markers = {
+        "appcache_handler.js": [b"__appcacheSettled", b"__exploitRunning", b"__exploitDone"],
+        "src/site.js": [b"__appcacheSettled", b"__exploitRunning", b"BUILD ="],
+        "src/webkit.js": [b"MAX_ATTEMPTS = 4"],
+        "src/relapse_exploit.js": [b"refusing to re-arm", b"alreadyJailbroken"],
+        "src/main.js": [b"alreadyJailbroken"],
+    }
+    for name, needles in markers.items():
+        data = (relapse / name).read_bytes()
+        for needle in needles:
+            if needle not in data:
+                raise ValueError(f"{name} is missing required marker {needle.decode()}")
+
+    for payload in ("payloads/kstuff.elf", "payloads/pldmgr.elf"):
+        if not (relapse / payload).is_file():
+            raise ValueError(f"Staged payload missing: {payload}")
+
+    if not (tree / "diagnostics/index.html").is_file():
+        raise ValueError("Staged diagnostics page is missing")
+    return len(markers), sum(1 for p in relapse.rglob("*") if p.is_file())
 
 
 class RelapseHandler(SimpleHTTPRequestHandler):
@@ -139,50 +216,84 @@ class RelapseHandler(SimpleHTTPRequestHandler):
         super().end_headers()
 
 
+def stage_fresh(destination):
+    """Stage relapse-stable/ plus diagnostics into a fresh directory."""
+    destination = Path(destination).resolve()
+    if destination.exists():
+        shutil.rmtree(destination)
+    from tools.stage_stable import stage
+
+    return stage(destination)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--bind", default="0.0.0.0", help="Bind address (default: all interfaces)")
     parser.add_argument("--port", type=int, default=8080)
-    parser.add_argument("--check", action="store_true", help="Verify snapshot and exit")
+    parser.add_argument(
+        "--snapshot",
+        action="store_true",
+        help="Serve the untouched upstream snapshot in relapse/ instead of the "
+             "hardened host (provenance checks only; this is the unpatched source)",
+    )
     parser.add_argument(
         "--staged",
         action="store_true",
-        help="Serve the generated Pages tree instead of the pinned snapshot "
-             "(run tools/stage_stable.py first; skips snapshot verification)",
+        help="Serve a prebuilt Pages tree from --staged-dir without staging it again",
     )
     parser.add_argument(
         "--staged-dir",
         default="build/pages-stable",
-        help="Generated Pages tree to serve with --staged (default: build/pages-stable)",
+        help="Prebuilt Pages tree for --staged (default: build/pages-stable)",
     )
+    parser.add_argument(
+        "--build-dir",
+        default=str(DEFAULT_BUILD_DIR),
+        help="Where default mode stages the hardened host (default: .local/serve-build)",
+    )
+    parser.add_argument("--check", action="store_true", help="Verify the selected tree and exit")
     args = parser.parse_args()
 
-    if args.staged:
-        # A generated tree is produced from relapse-stable/, whose bytes are not
-        # in the snapshot manifest. Running verify_snapshot() against it would
-        # fail every time, so skip it and say so explicitly.
-        root = (ROOT / args.staged_dir).resolve()
-        if not (root / "relapse" / "index.html").is_file():
-            parser.exit(1, f"Staged tree missing: {root}\nRun: python tools/stage_stable.py {args.staged_dir}\n")
-        RelapseHandler.staged = True
-        RelapseHandler.staged_root = root
-        print(f"Serving staged Pages tree: {root}", flush=True)
-        print("Snapshot verification skipped (generated tree).", flush=True)
-        if args.check:
-            return
-    else:
+    if args.snapshot:
         try:
             files, assets = verify_snapshot()
         except (OSError, ValueError, KeyError) as error:
             parser.exit(1, f"Snapshot verification failed: {error}\n")
-        print(f"Verified {files} file hashes and {assets} offline assets.", flush=True)
+        print(f"Verified upstream snapshot: {files} file hashes and {assets} offline assets.", flush=True)
+        print("WARNING: the snapshot is the unpatched upstream host and still has the", flush=True)
+        print("documented second-boot freeze paths. Use the default mode for console runs.", flush=True)
         if args.check:
             return
+        RelapseHandler.staged = False
+        RelapseHandler.staged_root = None
+        mode = "upstream snapshot (unpatched)"
+    else:
+        if args.staged:
+            tree = (ROOT / args.staged_dir).resolve()
+            if not (tree / "relapse/index.html").is_file():
+                parser.exit(1, f"Staged tree missing: {tree}\nRun: python tools/stage_stable.py {args.staged_dir}\n")
+        else:
+            tree = Path(args.build_dir).resolve()
+            try:
+                stage_fresh(tree)
+            except Exception as error:
+                parser.exit(1, f"Staging the hardened host failed: {error}\n")
+        try:
+            markers, entries = verify_staged_tree(tree)
+        except (OSError, ValueError, KeyError) as error:
+            parser.exit(1, f"Hardened tree verification failed: {error}\n")
+        print(f"Verified hardened host: {markers} guard markers across {entries} staged files.", flush=True)
+        if args.check:
+            return
+        RelapseHandler.staged = True
+        RelapseHandler.staged_root = tree
+        mode = f"hardened host from relapse-stable ({tree})"
 
     with ThreadingHTTPServer((args.bind, args.port), RelapseHandler) as server:
+        print(f"Serving {mode}", flush=True)
         print(f"Local preview: http://127.0.0.1:{server.server_port}/relapse/", flush=True)
         print(f"PS5: http://<this-PC-LAN-IP>:{server.server_port}/relapse/", flush=True)
-        print("The imported page starts automatically on a supported PS5. Ctrl+C stops the host.", flush=True)
+        print("The page starts automatically on a supported PS5. Ctrl+C stops the host.", flush=True)
         try:
             server.serve_forever()
         except KeyboardInterrupt:
