@@ -1,5 +1,11 @@
 # PS5Expweb shortcut client
 
+The package artwork (icon0/pic0/pic1) is the project design rendered by
+`tools/design_artwork.py` into `client/artwork/`; `tools/prepare_client.py`
+overlays it onto the rebuilt shortcut automatically (dimensions are validated
+against the original package). Re-render the design with
+`python tools/design_artwork.py` and rebuild the package to pick up changes.
+
 Target: https://patnawa.github.io/PS5Expweb/diagnostics/
 
 [Download the diagnostic package](https://github.com/patnawa/PS5Expweb/releases/tag/diagnostics-v0.1.0).

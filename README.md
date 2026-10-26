@@ -58,6 +58,18 @@ The server sends the cache manifest as `text/cache-manifest` and its root
 redirects to `/relapse/`. The repository's original root `index.html` is the
 older 3.xx–4.xx host and is not the 13.60 entry point.
 
+### Control deck (server GUI)
+
+`python serve.py` also opens a dark **control deck** window that shows the live
+exploit status in stage form — PAGE LOAD → CACHE → CODE → CHAIN RUNNING →
+ELF LOADER → PAYLOADS — per connected console, plus payload integrity
+(size + SHA-256 prefix per ELF), build/manifest stamps and a live request
+feed. The stages are inferred from the console's own request stream (the chain
+fetches its files in a fixed order), so the exploit code is untouched. The
+same deck is served as a web page at `http://127.0.0.1:8080/_gui/` for phones
+or a second monitor. Use `python serve.py --no-gui` for the terminal-only
+mode (or when the machine has no display).
+
 ### The upstream snapshot is not the console host
 
 `relapse/` is the untouched upstream source. It still ships the stale-payload

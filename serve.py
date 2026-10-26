@@ -21,15 +21,21 @@ import argparse
 import hashlib
 import json
 import shutil
+import threading
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
+
+import server_gui
 
 ROOT = Path(__file__).resolve().parent
 SNAPSHOT = ROOT / "relapse"
 STABLE = ROOT / "relapse-stable"
 PROVENANCE = ROOT / "docs/sources/mour0ne-snapshot.json"
 DEFAULT_BUILD_DIR = ROOT / ".local/serve-build"
+
+# Live status shared by the request handler, the web dashboard and the GUI.
+STATE = server_gui.GuiState()
 
 
 def snapshot_files():
@@ -165,6 +171,42 @@ class RelapseHandler(SimpleHTTPRequestHandler):
             self.allowed.update({"/diagnostics/index.html", "/diagnostics/host.js"})
         super().__init__(*args, directory=str(self.base), **kwargs)
 
+    def log_request(self, code="-", size="-"):
+        # Every request feeds the control deck (server GUI / web dashboard);
+        # the console's file stream IS the exploit stage timeline.
+        try:
+            STATE.record(self.command, self.path, code, size,
+                         self.address_string())
+        except Exception:
+            pass
+        super().log_request(code, size)
+
+    def serve_gui_asset(self, path):
+        """Read-only control deck endpoints, served in every mode."""
+        if path in ("/_gui", "/_gui/", "/_gui/index.html"):
+            body = server_gui.dashboard_html().encode()
+            content_type = "text/html; charset=utf-8"
+        elif path == "/_gui/status.json":
+            body = json.dumps(STATE.snapshot()).encode()
+            content_type = "application/json"
+        elif path == "/_gui/icon.png":
+            icon = server_gui.ARTWORK / "mark-256.png"
+            if not icon.is_file():
+                self.send_error(404, "Artwork not generated")
+                return None
+            body = icon.read_bytes()
+            content_type = "image/png"
+        else:
+            self.send_error(404, "Unknown control deck asset")
+            return None
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        if self.command != "HEAD":
+            self.wfile.write(body)
+        return None
+
     def redirect(self, location):
         self.send_response(302)
         self.send_header("Location", location)
@@ -174,6 +216,10 @@ class RelapseHandler(SimpleHTTPRequestHandler):
 
     def send_head(self):
         path = unquote(urlsplit(self.path).path)
+
+        # The control deck is server-side UI, not part of either served tree.
+        if path.startswith("/_gui/"):
+            return self.serve_gui_asset(path)
 
         if type(self).staged:
             # Staged mode serves the generated Pages tree as-is. Its root already
@@ -252,6 +298,11 @@ def main():
         help="Where default mode stages the hardened host (default: .local/serve-build)",
     )
     parser.add_argument("--check", action="store_true", help="Verify the selected tree and exit")
+    parser.add_argument(
+        "--no-gui",
+        action="store_true",
+        help="Run without the desktop control-deck window (terminal only)",
+    )
     args = parser.parse_args()
 
     if args.snapshot:
@@ -262,6 +313,7 @@ def main():
         print(f"Verified upstream snapshot: {files} file hashes and {assets} offline assets.", flush=True)
         print("WARNING: the snapshot is the unpatched upstream host and still has the", flush=True)
         print("documented second-boot freeze paths. Use the default mode for console runs.", flush=True)
+        guards, staged_files, info_tree = files, assets, ROOT
         if args.check:
             return
         RelapseHandler.staged = False
@@ -283,21 +335,54 @@ def main():
         except (OSError, ValueError, KeyError) as error:
             parser.exit(1, f"Hardened tree verification failed: {error}\n")
         print(f"Verified hardened host: {markers} guard markers across {entries} staged files.", flush=True)
+        guards, staged_files, info_tree = markers, entries, tree
         if args.check:
             return
         RelapseHandler.staged = True
         RelapseHandler.staged_root = tree
         mode = f"hardened host from relapse-stable ({tree})"
 
+    build, manifest_version, payloads = server_gui.collect_tree_info(info_tree)
     with ThreadingHTTPServer((args.bind, args.port), RelapseHandler) as server:
+        host = args.bind if args.bind != "0.0.0.0" else "127.0.0.1"
+        console_url = f"http://{host}:{server.server_port}/relapse/"
+        dashboard_url = f"http://{host}:{server.server_port}/_gui/"
+        STATE.set_server(
+            mode=mode,
+            url=f"http://<this-PC-LAN-IP>:{server.server_port}/relapse/",
+            bind=args.bind,
+            port=server.server_port,
+            build=build,
+            manifest_version=manifest_version,
+            guards=guards,
+            staged_files=staged_files,
+            payloads=payloads,
+        )
         print(f"Serving {mode}", flush=True)
-        print(f"Local preview: http://127.0.0.1:{server.server_port}/relapse/", flush=True)
+        print(f"Local preview: {console_url}", flush=True)
         print(f"PS5: http://<this-PC-LAN-IP>:{server.server_port}/relapse/", flush=True)
+        print(f"Control deck: {dashboard_url}", flush=True)
         print("The page starts automatically on a supported PS5. Ctrl+C stops the host.", flush=True)
-        try:
-            server.serve_forever()
-        except KeyboardInterrupt:
-            pass
+
+        gui = not args.no_gui
+        if gui:
+            try:
+                import tkinter  # noqa: F401
+            except ImportError:
+                print("tkinter is unavailable - running with the terminal UI only.", flush=True)
+                gui = False
+
+        if gui:
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            server_gui.run_gui(STATE, {"console": console_url, "dashboard": dashboard_url})
+            server.shutdown()
+            server.server_close()
+        else:
+            try:
+                server.serve_forever()
+            except KeyboardInterrupt:
+                pass
 
 
 if __name__ == "__main__":

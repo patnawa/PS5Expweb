@@ -8,6 +8,34 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
+ARTWORK_NAMES = ("icon0.png", "pic0.png", "pic1.png")
+
+
+def png_size(data):
+    if data[:8] != b"\x89PNG\r\n\x1a\n":
+        raise ValueError("Artwork is not a PNG")
+    return int.from_bytes(data[16:20], "big"), int.from_bytes(data[20:24], "big")
+
+
+def overlay_artwork(destination, original):
+    """Replace the package artwork with the project design when it is present.
+
+    The new artwork must match the original PNG dimensions exactly; the
+    console's media routes reject differently sized icon0/pic0/pic1.
+    """
+    artwork = ROOT / "client" / "artwork"
+    replaced = []
+    for name in ARTWORK_NAMES:
+        custom = artwork / name
+        if not custom.is_file():
+            continue
+        want = png_size(original[name])
+        got = png_size(custom.read_bytes())
+        if got != want:
+            raise ValueError(f"Artwork {name} is {got[0]}x{got[1]}, the package needs {want[0]}x{want[1]}")
+        (destination / "sce_sys" / name).write_bytes(custom.read_bytes())
+        replaced.append(name)
+    return replaced
 
 
 def prepare(package, destination, config):
@@ -50,12 +78,15 @@ def prepare(package, destination, config):
     if len(eboots) != 1 or eboots[0].attrib.get("plain") != "0":
         raise ValueError("Original package does not declare the expected empty shortcut executable")
     (destination / "eboot.bin").write_bytes(b"")
+    param["_artwork"] = overlay_artwork(destination, extracted)
     return param
 
 
 if __name__ == "__main__":
-    config = json.loads((ROOT / "client/config.json").read_text())
+    config_path = Path(sys.argv[2]) if len(sys.argv) > 2 else ROOT / "client/config.json"
+    config = json.loads(config_path.read_text())
     package = ROOT / "mPS5XPLOIT-RELAPSE.pkg"
     destination = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "build/client-source"
     result = prepare(package, destination, config)
-    print(f"Client source: {destination}\nDestination: {result['deeplinkUri']}")
+    artwork = ", ".join(result.pop("_artwork", [])) or "original package artwork"
+    print(f"Client source: {destination}\nDestination: {result['deeplinkUri']}\nArtwork: {artwork}")
