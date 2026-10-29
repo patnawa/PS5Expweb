@@ -100,11 +100,12 @@
     if (lines.length > MAX_LINES) lines = lines.slice(-MAX_LINES);
 
     // Persisting the whole ring on every line is real work on the console's
-    // WebKit. Stages, errors and the finish marker always flush; ordinary
+    // WebKit. Stages, errors, finish markers and crumbs always flush; ordinary
     // lines batch to at most once a second. A freeze still leaves every
     // completed stage on disk, which is what matters for diagnosis.
     var now = Date.now();
-    var force = t === "stage" || t === "error" || t === "done";
+    var force =
+      t === "stage" || t === "error" || t === "done" || t === "crumb";
     if (force || now - lastSaveMs >= SAVE_INTERVAL_MS) {
       lastSaveMs = now;
       save();
