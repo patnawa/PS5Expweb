@@ -2,7 +2,7 @@
 
 Live diagnostic page: **https://patnawa.github.io/PS5Expweb/diagnostics/**
 
-[Download the diagnostic app](https://github.com/patnawa/PS5Expweb/releases/tag/diagnostics-v0.1.0).
+[Download the diagnostic app](https://github.com/patnawa/PS5Expweb/releases/tag/v2026-10-29).
 See [app development notes](docs/diagnostic-app.md) for package details and local development.
 
 ## Host diagnostics

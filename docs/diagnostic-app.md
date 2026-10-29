@@ -2,7 +2,7 @@
 
 Site: https://patnawa.github.io/PS5Expweb/diagnostics/
 
-[Download the package](https://github.com/patnawa/PS5Expweb/releases/tag/diagnostics-v0.1.0).
+[Download the package](https://github.com/patnawa/PS5Expweb/releases/tag/v2026-10-29).
 Local package: `build/diagnostic-client-release/PS5Expweb-Diagnostics.pkg`.
 Title: PS5Expweb - Diagnostics. Title ID: `LCLD13600`.
 SHA-256: `98d18b21453607c5bf4bf3c1004afb00eeb0c42dc57b2c844739c34821b7cbdc`.

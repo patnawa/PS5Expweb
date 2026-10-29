@@ -8,7 +8,7 @@ against the original package). Re-render the design with
 
 Target: https://patnawa.github.io/PS5Expweb/diagnostics/
 
-[Download the diagnostic package](https://github.com/patnawa/PS5Expweb/releases/tag/diagnostics-v0.1.0).
+[Download the diagnostic package](https://github.com/patnawa/PS5Expweb/releases/tag/v2026-10-29).
 Local file: build/diagnostic-client-release/PS5Expweb-Diagnostics.pkg.
 See [development and validation notes](../docs/diagnostic-app.md).
 
