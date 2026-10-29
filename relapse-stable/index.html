@@ -146,6 +146,17 @@
       opacity: 0.8;
     }
 
+    #build-stamp a {
+      color: var(--muted);
+      text-decoration: underline;
+      margin-left: 10px;
+    }
+
+    #build-stamp a:hover,
+    #build-stamp a:focus {
+      color: var(--cyan, #67e8f9);
+    }
+
     #console {
       position: fixed;
       left: 0;
@@ -307,7 +318,7 @@
     <div id="exploit-status">Waiting to start</div>
     <div id="exploit-detail"></div>
     <div id="progress-rail"><div id="progress-fill"></div></div>
-    <div id="build-stamp">build: loading…</div>
+    <div id="build-stamp">build: loading… <a id="cache-reset-link" href="reset-cache/" title="Clears this origin's Application Cache. Only use while the exploit is idle.">clear cache</a></div>
   </div>
 
   <button id="console-toggle" type="button">Logs</button>
