@@ -89,7 +89,7 @@ function cstage(name, detail) {
   } catch (e) {}
 }
 
-const BUILD = "2026-10-26o arm-c-guard";
+const BUILD = "2026-10-29a loader-race-fix";
 
 // ---- PS5 UI status wiring -------------------------------------------------
 // The new screen shows the kernel exploit stage in a floating card instead of

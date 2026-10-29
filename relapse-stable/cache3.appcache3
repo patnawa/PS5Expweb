@@ -1,5 +1,5 @@
 CACHE MANIFEST
-# version 2026-10-26o arm-c-guard #
+# version 2026-10-29a loader-race-fix #
 
 appcache_handler.js
 custom_host_stuff.js

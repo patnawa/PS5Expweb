@@ -232,7 +232,7 @@ prerequisite Y2JB documents).
 - Tests: 24 Python + 8 Node pass; CI green on every push; staged build
   verified with the same invariants before each deploy.
 - Live: `https://patnawa.github.io/PS5Expweb/relapse/`, build stamp
-  `2026-10-26o arm-c-guard`, manifest `# version 2026-10-26o arm-c-guard #`
+  `2026-10-29a loader-race-fix`, manifest `# version 2026-10-29a loader-race-fix #`
   with zero payload and zero GIF entries, kstuff served over the network at
   1,737,080 bytes / SHA-256 prefix `ab9a6cb4…`.
 - Regression tests added: `test_distribution.py::
@@ -250,7 +250,7 @@ On the console:
 
 1. Launch the shortcut; the first launch performs the small update and
    reloads itself.
-2. Confirm the log line `Build: 2026-10-26o arm-c-guard`. No build line means
+2. Confirm the log line `Build: 2026-10-29a loader-race-fix`. No build line means
    a stale cache — relaunch once; if still missing, clear the app's cache.
 3. Run one cycle. With the build line visible, the stale-payload path is
    excluded by construction; the CrashLog red banner's last stage (persisted
@@ -479,7 +479,7 @@ handoff, not the escalation. Three defects in the handoff path explain it.
 
 Recovery for a console already stuck: hold the power button ~15 s, unplug ~30 s,
 boot, delete the app's saved data (or reinstall the pkg) to drop the half-finished
-cache update, then launch once and confirm `Build: 2026-10-26o arm-c-guard` in the
+cache update, then launch once and confirm `Build: 2026-10-29a loader-race-fix` in the
 log before running a cycle. The build stamp is the only reliable signal that the
 new manifest — and therefore the small update — is actually in effect.
 
@@ -727,6 +727,98 @@ When you see it:
    console's layout. Record the `ARM-C-PLAN`, `ARM-C-STATES` and `ARM-C-RECLAIM`
    lines plus the `?numw=`/`?spray=`/`?churn=` values in use.
 
+### "One success, then crash" — the kexp pipe restore raced the shellcode (2026-10-29a)
+
+The reported shape after the 26n/26o builds: the first launch after a cold boot
+succeeds and the game runs; the next launch crashes the console; after the
+crash the console reboots (or the user power-cycles), the boot after that
+succeeds again. A strict alternation that tracks the boot.
+
+Two defects, both found by comparing this host against the hardware-stable
+Y2JB chain (itsPLK v1.1.0-fast11, confirmed on 13.60 for full boot AND
+relaunch) and by disassembling the two kexp blobs with WSL binutils.
+
+**Defect 1 — `runKexp` un-crossed the shellcode pipe pair while the detached
+shellcode was still using it.**
+
+The web kexp blob (`kexp_2026_05_25.bin`) bootstraps its kernel read/write
+through the pipe pair kexp.js crosses for it, at instruction level: the walker
+(`0x1430`) aims with `write(master_fd, state, 0x18)` — the crossing makes that
+write land on the victim pipe *struct* — and then reads aimed kernel memory
+with `read(victim_fd, buf, 0x60)`, walking down from `allproc` page by page
+until it finds the kernel ELF header. Every later step (kaddrs, softc, iommu,
+qa-flags patch, loader args) reads and writes the same way.
+
+Commit `276d53c` switched `spawnAndJoin` from `pthread_join` to
+`pthread_detach` (correct — the web blob parks its thread in an internal join
+forever), but left the `finally { restoreShellcodePipes() }` in `runKexp`,
+whose comment still claimed "the shellcode thread has joined". With detach,
+the un-cross fires milliseconds after `pthread_create` — while the blob is
+still walking kernel memory through that exact pair. Where the restore won the
+race, every later blob read returned the restored ring's contents instead of
+kernel memory; the bootstrap computed garbage addresses and either aborted
+("elfldr did not come up") or wrote kernel data to garbage (panic). Timing
+varies per boot, which is the alternation.
+
+The stable reference (Y2JB `relapse.js` -> `kexp.launch`) joins its thread and
+its blob runs the loader inline and *returns*, so the pair is untouched until
+the loader is fully installed — no race exists to have.
+
+What shipped:
+
+- `runKexp` no longer restores on success. It returns
+  `{ pipes: { master, victim, saved } }`; the restore call moved into the
+  catch path (spawn failure: the thread never ran, nobody owns the pair).
+- `launchElfLoader` keeps the context on `this.shellcodePipes`; `run()` decides
+  after the 9021 poll: loader up -> **leave the pair crossed** (the loader's
+  `rfork_thread` child holds the same fds and still reads kernel memory
+  through the crossing when it maps incoming payloads — un-crossing under it
+  breaks the loader); loader down -> un-cross, because an armed pair with no
+  other holder is what kills the console at app close (the 50432d7 bug, kept
+  as the failure-path behavior).
+- The pre-arm 9021 probe retries three times (120 ms apart) so a slow fresh
+  webview cannot misread an alive loader as absent.
+
+REA evidence (WSL objdump, blob at raw base 0):
+
+| Where | What it shows |
+| --- | --- |
+| web blob `0x123a` / `0x1278` | `call [0x48c0] pthread_create` / `call [0x48c8] pthread_join` — the blob parks its own thread on the elfldr thread, hence the JS detach. |
+| web blob `0x1488-0x14c8` | the walker's kernel R/W: `write(master_fd)` then `read(master_fd)`/`read(victim_fd, 0x60)` through the crossed pair. |
+| web blob `0x12c0-0x1335` | the never-reached cleanup: munmap elfldr + close all four fds after the join returns. |
+| both elfldr ELFs | `R_X86_64_GLOB_DAT rfork_thread` (web `0x13d28`, y2jb `0x13d98`); the 9021 server is an `rfork(0x1030, ...)` **child process**, which survives the webview that launched it. |
+| y2jb blob | no "created elfldr thread" strings; "run loader started/completed" + "elfldr returned %i" — the loader runs inline in the joined thread and returns, which is why Y2JB can tear down safely after `kexp.launch` returns. |
+
+**Defect 2 — the failcheck marker deletion (26n) re-opened the same-boot
+re-arm.** The 26n rationale ("the loader dies with the webview") was wrong:
+the loader *thread* dies, but the `rfork_thread` child — the actual 9021
+server — is a separate process and survives, exactly as Y2JB fast11
+hardware-confirmed. With the marker deleted after a clean teardown, a relaunch
+whose probe missed (or whose loader had really died) fell through all three
+guards and re-armed the AIO exploit in the same boot — the double-patch panic
+class documented since 26l, made likely by the OID hijack that `restoreOids()`
+deliberately leaves in place until reboot and by the reclaimed waiter arrays
+still owned by the first run's spray nodes.
+
+What shipped:
+
+- The marker is written at run start and **never deleted** (Y2JB's rule). A
+  clean teardown does not make the kernel re-arm-safe, so the marker means
+  "the kernel was patched in this boot", clean or not. The reboot clears it
+  with `common_temp`.
+- Guard order is unchanged and now complete: uid/sandbox (same-process
+  escalation) -> elfldr on 9021 (surviving loader: already-jailbroken, payload
+  redelivery) -> marker (loader really gone: refuse, ask for a reboot).
+- `main.js` and the FAILCHECK report now say "the kernel was already patched
+  in this boot - restart the console, then launch again" instead of claiming
+  the previous run "did not finish".
+
+Expected behavior after this build: a cold boot runs the chain once, the game
+loads, and relaunching the shortcut either redelivers payloads to the still
+running loader or asks for a reboot — it never re-arms, so the strict
+success/crash alternation is gone. `deleteMarker()` was removed entirely;
+`tests/test_distribution.py` asserts no unlink path remains.
+
 ### "Show me the controller and the status" — the screen rebuild (2026-10-26m)
 
 The old screen was a 420 KB `index.html`: a base64 JPEG backdrop on a fixed
@@ -779,8 +871,12 @@ same rounded, blurred treatment.
 
 ### Open items
 
-- Hardware confirmation of the full fix chain (no console access in this
-  workspace; `consoleTested` remains false for the built pkgs).
+- Hardware confirmation of the fix chain through `2026-10-29a loader-race-fix`
+  (no console access in this workspace; `consoleTested` remains false for the
+  built pkgs). The two 2026-10-29a behaviors to watch: the boot after a
+  successful run must never re-arm (ALREADY path or reboot prompt, no panic),
+  and a successful run must leave the shellcode pair crossed without any
+  app-close or shutdown panic afterwards.
 - The payload retry and the pending-delivery retry have no automated coverage
   yet; both are exercised only by the console protocol above.
 - The detach path's elfldr poll is not covered by the mock-kernel tests; it is

@@ -380,13 +380,13 @@ test('teardown fallback disarms both pipes when no real buffers were saved', asy
 // Test C: the shellcode pipe pair kexp.js crosses must also come back with its
 // real buffers before the process can close.
 // ---------------------------------------------------------------------------
-test('kexp shellcode pipe pair is restored after the shellcode returns', async () => {
+test('kexp shellcode pipe pair can be restored when the loader never came up', async () => {
     const {k, target, loadKexp} = bootWorld();
     const kexp = loadKexp();
     assert.equal(typeof kexp.prepareShellcodePipes, 'function',
         'kexp.js must expose prepareShellcodePipes');
     assert.equal(typeof kexp.restoreShellcodePipes, 'function',
-        'kexp.js must expose restoreShellcodePipes -- the shellcode pair is currently left armed and kills the console at close');
+        'kexp.js must expose restoreShellcodePipes -- it is the close-safety fallback for a loader that never came up');
 
     // filedesc table walk for pipeOf(): procFdAddr -> table -> file -> pipe.
     const fdOf = (fd) => Ptr.from(FILE_TABLE + BigInt(0x08 + fd * 0x30));
@@ -541,4 +541,47 @@ test('spawnAndJoin detaches instead of joining when pthread_detach resolves', as
         '(saw ' + calls.length + ' chain calls)');
     assert.equal(out.detached, true, 'detach path must report detached:true');
     assert.equal(out.joinResult, 0, 'detach path must not report a join result');
+});
+// ---------------------------------------------------------------------------
+// Test E: the success path of runKexp must NOT un-cross the shellcode pair.
+// The detached shellcode bootstraps its kernel R/W THROUGH that pair (the blob
+// aims the victim ring with write(master_fd) and reads aimed kernel memory
+// with read(victim_fd)), and the loader's rfork child keeps using it after the
+// webview dies. Un-crossing in runKexp's finally raced that bootstrap: boots
+// where the restore won ended in "elfldr did not come up" or in garbage
+// kernel writes -- the alternating success/crash boot (2026-10-29a). Source
+// asserts: the success path returns the pair, only the spawn-failure path and
+// the loader-never-up path in run() restore it.
+// ---------------------------------------------------------------------------
+const KEXP_SOURCE = require('node:fs').readFileSync(
+    require('node:path').join(__dirname, '../relapse-stable/src/kexp.js'), 'utf8');
+const EXPLOIT_SOURCE = require('node:fs').readFileSync(
+    require('node:path').join(__dirname, '../relapse-stable/src/relapse_exploit.js'), 'utf8');
+
+test('runKexp returns the crossed pair on success instead of un-crossing it', () => {
+    // The success return must hand the pair context back to the caller.
+    assert.ok(KEXP_SOURCE.includes('return { pipes: { master, victim, saved: savedPipes } };'),
+        'runKexp must return the crossed shellcode pair to the caller on success');
+    // Exactly one restore call, and it must sit AFTER the success return inside
+    // the catch path (spawn failure: the thread never ran, nobody owns the pair).
+    const restoreCalls = KEXP_SOURCE.split('await restoreShellcodePipes(krw, master, victim, savedPipes').length - 1;
+    assert.equal(restoreCalls, 1,
+        'restoreShellcodePipes must be called exactly once in runKexp -- on the spawn-failure path only');
+    const successReturnAt = KEXP_SOURCE.indexOf('return { pipes: { master, victim, saved: savedPipes } };');
+    const restoreAt = KEXP_SOURCE.indexOf('await restoreShellcodePipes(krw, master, victim, savedPipes');
+    const catchAt = KEXP_SOURCE.lastIndexOf('catch', restoreAt);
+    assert.ok(successReturnAt !== -1 && catchAt !== -1 && successReturnAt < catchAt && catchAt < restoreAt,
+        'the runKexp restore must live in the catch path, after the success return');
+});
+
+test('run() leaves the pair crossed while the loader is up and un-crosses it when down', () => {
+    assert.ok(EXPLOIT_SOURCE.includes('this.shellcodePipes = (result && result.pipes) || null;'),
+        'launchElfLoader must keep the shellcode pair context for run()');
+    assert.ok(EXPLOIT_SOURCE.includes("leaving the shellcode pair crossed - the loader's rfork child owns it"),
+        'run() must NOT un-cross the shellcode pair while the loader answers on 9021');
+    // The loader-never-up branch must restore through the kept context.
+    const keepAt = EXPLOIT_SOURCE.indexOf("leaving the shellcode pair crossed - the loader's rfork child owns it");
+    const restoreInRun = EXPLOIT_SOURCE.indexOf('await restoreShellcodePipes(', keepAt);
+    assert.ok(restoreInRun > keepAt,
+        'run() must restore the shellcode pair after the keep-branch (loader-never-up path)');
 });

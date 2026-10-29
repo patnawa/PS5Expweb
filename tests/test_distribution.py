@@ -199,11 +199,19 @@ class DistributionTests(unittest.TestCase):
             # is still null there, so restoreOids() would call kaddr() on null
             # and report a false POWER-CYCLE failure.
             self.assertIn(b"this.teardownClean = true;", exploit)
+            # The marker must NEVER be deleted (2026-10-29a). Deleting it after
+            # a clean teardown re-opened the same-boot re-arm: restoreOids()
+            # leaves the OID kinds/arg1 steering hijacked until reboot by
+            # design, so a clean kernel is not a re-arm-safe kernel, and the
+            # re-arm is the "one success, then crash" alternation. Y2JB never
+            # deletes it either; the reboot clears it with common_temp.
+            self.assertNotIn(b"deleteMarker", exploit)
+            self.assertNotIn(b"SYS.unlink", exploit)
             # main.js must name the reboot instruction instead of the generic
             # "kernel exploit did not finish".
             self.assertIn(b"failedInThisBoot", main)
             self.assertIn(
-                b"a previous run in this boot did not finish - restart the console, then launch again",
+                b"the kernel was already patched in this boot - restart the console, then launch again",
                 main,
             )
 
