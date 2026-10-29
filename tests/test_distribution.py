@@ -216,5 +216,41 @@ class DistributionTests(unittest.TestCase):
             )
 
 
+    def test_chain_refuses_to_arm_when_the_build_cannot_be_verified(self):
+        # The 2026-10-26n console crash: the cached build failed its network
+        # checks ("AppCache check failed; continuing"), armed the stale chain
+        # anyway, and the WebKit exploit crashed the console before any payload
+        # could load. The freshness guard must stop the chain before arming
+        # whenever the host manifest cannot confirm the running build.
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary) / "pages"
+            stage_stable(output)
+            site = (output / "relapse/src/site.js").read_bytes()
+
+            self.assertIn(b"verifyBuildFreshness", site)
+            # The guard must run before the chain is marked live, so a refusal
+            # leaves the same safe state as the stale-abort path.
+            guard_at = site.index(b"const freshness = await verifyBuildFreshness()")
+            arm_at = site.index(b"window.__exploitRunning = true")
+            self.assertLess(
+                guard_at,
+                arm_at,
+                "the freshness guard must run before the chain is marked live",
+            )
+            # All three unverifiable outcomes refuse, each with instructions:
+            # dead network, unparsable manifest, and a version mismatch.
+            self.assertIn(b"Network unreachable after 3 tries", site)
+            self.assertIn(b"no readable version line", site)
+            self.assertIn(b"the cache update did not land", site)
+            # The fetch must go to the network (cache-busting query), and the
+            # comparison must be against the running build.
+            self.assertIn(b'"fresh=" + Date.now()', site)
+            self.assertIn(b"hostVersion !== BUILD", site)
+            # The refusal return must be recognized by the run() consumer and
+            # leave nothing armed.
+            self.assertIn(b'return "freshness-abort"', site)
+            self.assertIn(b'result === "freshness-abort"', site)
+
+
 if __name__ == "__main__":
     unittest.main()

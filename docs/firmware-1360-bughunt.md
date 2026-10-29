@@ -232,7 +232,7 @@ prerequisite Y2JB documents).
 - Tests: 24 Python + 8 Node pass; CI green on every push; staged build
   verified with the same invariants before each deploy.
 - Live: `https://patnawa.github.io/PS5Expweb/relapse/`, build stamp
-  `2026-10-29a loader-race-fix`, manifest `# version 2026-10-29a loader-race-fix #`
+  `2026-10-29b stale-guard`, manifest `# version 2026-10-29b stale-guard #`
   with zero payload and zero GIF entries, kstuff served over the network at
   1,737,080 bytes / SHA-256 prefix `ab9a6cb4…`.
 - Regression tests added: `test_distribution.py::
@@ -250,7 +250,7 @@ On the console:
 
 1. Launch the shortcut; the first launch performs the small update and
    reloads itself.
-2. Confirm the log line `Build: 2026-10-29a loader-race-fix`. No build line means
+2. Confirm the log line `Build: 2026-10-29b stale-guard`. No build line means
    a stale cache — relaunch once; if still missing, clear the app's cache.
 3. Run one cycle. With the build line visible, the stale-payload path is
    excluded by construction; the CrashLog red banner's last stage (persisted
@@ -479,7 +479,7 @@ handoff, not the escalation. Three defects in the handoff path explain it.
 
 Recovery for a console already stuck: hold the power button ~15 s, unplug ~30 s,
 boot, delete the app's saved data (or reinstall the pkg) to drop the half-finished
-cache update, then launch once and confirm `Build: 2026-10-29a loader-race-fix` in the
+cache update, then launch once and confirm `Build: 2026-10-29b stale-guard` in the
 log before running a cycle. The build stamp is the only reliable signal that the
 new manifest — and therefore the small update — is actually in effect.
 
@@ -818,6 +818,64 @@ loads, and relaunching the shortcut either redelivers payloads to the still
 running loader or asks for a reboot — it never re-arms, so the strict
 success/crash alternation is gone. `deleteMarker()` was removed entirely;
 `tests/test_distribution.py` asserts no unlink path remains.
+
+### "It crashed the PS5" — the stale 26n console armed on a dead network (2026-10-29b)
+
+Reported log from the crashed console: status card `build: 2026-10-26n
+no-join`, `Cache at start: status=IDLE ... settle=n/a`, `AppCache check
+failed; continuing`, `Cache settled: ... settle=error`, then `Starting WebKit
+exploit / Attempt: 1 / Failed: Unable to deserialize data. / Retry: Heap
+placement failed attempt 2` and the console died.
+
+Three stacked facts, none of them the 2026-10-29a build:
+
+1. **The console never converged.** The live Pages host was verified healthy
+   at the time (manifest 874 B and site.js 13,255 B, `Last-Modified` Oct 29,
+   `cache.appcache` alias present). The console's own network fetches failed —
+   `settle=error` — so the AppCache update never ran, and the cached 26n build
+   (pre-26o, with every crash bug 29a fixed) kept arming.
+2. **The stale build armed on a dead network.** Both the 26n and the 29a
+   clients "continued" on `settle=error`. For the web host that is never
+   right: payloads are fetched over the network in the same run, so an
+   unverifiable run has no upside — only the stale-crash risk.
+3. **The WebKit exploit failed twice and the console died.** `Unable to
+   deserialize data` and `Heap placement failed` are the documented
+   heap-layout failures; a crash during a retry spray is not preventable from
+   JS. What IS preventable is arming at all on a build that cannot be
+   verified.
+
+What shipped (build `2026-10-29b stale-guard`):
+
+- `verifyBuildFreshness()` in site.js runs after the settle gate and before
+  the chain is marked live. It XHR-fetches the page's own manifest with a
+  cache-busting query (3 tries, 5 s timeout), parses the `# version` line, and
+  compares it with the running BUILD.
+- Any unverifiable outcome refuses to arm with on-screen instructions:
+  network unreachable after 3 tries; manifest without a readable version;
+  host version different from the running build (names both versions).
+  The refusal returns `freshness-abort`, which the run() consumer treats like
+  `stale-abort`: nothing armed, so a relaunch or a later reload is safe.
+- The trade-off is deliberate: this host needs the network for the payload
+  handoff anyway, so an offline arm never completed a run. A console whose
+  network works but whose AppCache is stuck now sees the exact message ("the
+  cache update did not land... delete the app's saved data or open
+  /relapse/reset-cache/") instead of a crash.
+- `tests/test_distribution.py::test_chain_refuses_to_arm_when_the_build_
+  cannot_be_verified` asserts the guard runs before arming, all three refusal
+  paths, the network fetch shape, and the consumer handling.
+
+Recovery for the crashed console (stale 26n cache, network failing):
+
+1. Hold the power button ~15 s, unplug ~30 s, boot.
+2. Settings > Network > Test Internet Connection. If a DNS blocker
+   (nanodns) is in the path, make sure `patnawa.github.io` and
+   `githubusercontent.com` are not sinkholed and the DNS server itself is up.
+3. Delete the shortcut app's saved data (Settings > Storage > Console Storage
+   > Saved Data > the PS5Expweb app) — this clears the stuck 26n cache.
+4. Relaunch once with network; expect `Build: 2026-10-29b stale-guard`.
+5. If the WebKit attempts fail again on a fresh boot, power off before
+   retrying — retrying on a dirty heap is what turns a failed spray into a
+   crash.
 
 ### "Show me the controller and the status" — the screen rebuild (2026-10-26m)
 

@@ -89,7 +89,7 @@ function cstage(name, detail) {
   } catch (e) {}
 }
 
-const BUILD = "2026-10-29a loader-race-fix";
+const BUILD = "2026-10-29b stale-guard";
 
 // ---- PS5 UI status wiring -------------------------------------------------
 // The new screen shows the kernel exploit stage in a floating card instead of
@@ -100,6 +100,7 @@ const STAGE_LABELS = {
   "site:run": "Starting exploit",
   "site:cache-settle": "Checking cache",
   "site:cache-status": "Cache ready",
+  "site:freshness": "Verifying build",
   "site:webkit": "WebKit exploit",
   "site:arw-ready": "Memory primitive ready",
   "site:kernel-exploit": "Kernel exploit",
@@ -125,6 +126,7 @@ const STAGE_PROGRESS = {
   "site:run": 2,
   "site:cache-settle": 5,
   "site:cache-status": 8,
+  "site:freshness": 9,
   "site:webkit": 12,
   "site:arw-ready": 20,
   "site:kernel-exploit": 25,
@@ -262,6 +264,97 @@ function cacheSummary(report) {
   );
 }
 
+// Fetch the cache manifest over the network and compare its version line with
+// the running BUILD. The manifest itself is never an appcache entry, so the
+// XHR goes to the network; the query string keeps the 10-minute Pages HTTP
+// cache from serving a stale copy. Mirrors kexp.js fetchBinaryOnce: XHR, not
+// fetch(), because the appcache path in WebKit serves status 0.
+function fetchTextOnce(url, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("GET", url, true);
+    xhr.responseType = "text";
+    try {
+      xhr.timeout = timeoutMs;
+    } catch (e) {}
+    xhr.onload = () => {
+      if (xhr.status === 0 || (xhr.status >= 200 && xhr.status < 300)) {
+        resolve(String(xhr.responseText || ""));
+      } else {
+        reject(new Error("HTTP " + xhr.status));
+      }
+    };
+    xhr.onerror = () => reject(new Error("network error"));
+    xhr.ontimeout = () => reject(new Error("timeout"));
+    xhr.send();
+  });
+}
+
+function manifestVersionOf(text) {
+  const match = String(text).match(/^#\s*version\s+(.+?)\s*#\s*$/m);
+  return match ? match[1].trim() : null;
+}
+
+// Refuse to arm a chain whose build cannot be confirmed current against the
+// host. The 2026-10-26n console crash ran stale code through exactly this
+// hole: its network fetches failed ("AppCache check failed; continuing"),
+// the stale build armed anyway, and the WebKit exploit crashed the console.
+// The web host cannot deliver payloads offline either, so an unverifiable
+// run has no upside -- refuse it with instructions instead of arming.
+async function verifyBuildFreshness() {
+  const manifestAttr =
+    document.documentElement.getAttribute("manifest") || "cache.appcache";
+  const url = manifestAttr + (manifestAttr.indexOf("?") >= 0 ? "&" : "?") +
+    "fresh=" + Date.now();
+  let text = null;
+  let lastError = null;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      text = await fetchTextOnce(url, 5000);
+      break;
+    } catch (e) {
+      lastError = e;
+      if (attempt < 3) await new Promise((r) => setTimeout(r, 400 * attempt));
+    }
+  }
+  if (text === null) {
+    return {
+      verified: false,
+      reason: "network",
+      message:
+        "Network unreachable after 3 tries (" + String((lastError && lastError.message) || lastError) + ") - refusing to arm. " +
+        "The chain cannot deliver payloads offline and the cache may be stale. " +
+        "Restore the console's connection to this host and relaunch.",
+    };
+  }
+  const hostVersion = manifestVersionOf(text);
+  if (!hostVersion) {
+    return {
+      verified: false,
+      reason: "manifest",
+      message:
+        "The manifest at " + manifestAttr + " has no readable version line - refusing to arm. " +
+        "Relaunch once; if it persists, the host is serving a broken manifest.",
+    };
+  }
+  if (hostVersion !== BUILD) {
+    return {
+      verified: false,
+      reason: "stale",
+      message:
+        'Host serves build "' + hostVersion + '" but this page runs "' + BUILD +
+        '" - the cache update did not land. Relaunch once (the update downloads then). ' +
+        "If it persists, delete the app's saved data (Settings > Storage > Console Storage > Saved Data) " +
+        "or open the reset page /relapse/reset-cache/ while the app is idle.",
+    };
+  }
+  return {
+    verified: true,
+    reason: null,
+    message: 'host manifest matches this build ("' + BUILD + '")',
+  };
+}
+
 async function run() {
   cstage("site:run");
   writeLog("Build: " + BUILD, "info");
@@ -317,6 +410,23 @@ async function run() {
     return "stale-abort";
   }
 
+  // Freshness guard: refuse to arm when the running build cannot be confirmed
+  // current against the host. The stale-cache console crash armed through the
+  // settle=error path above; this is the hard stop.
+  cstage("site:freshness");
+  const freshness = await verifyBuildFreshness();
+  if (!freshness.verified) {
+    window.__exploitRunning = false;
+    writeLog(freshness.message, "error");
+    cstage("site:freshness", freshness.reason);
+    try {
+      if (window.CrashLog)
+        window.CrashLog.finish("failed", "build not verified: " + freshness.reason);
+    } catch (e) {}
+    return "freshness-abort";
+  }
+  writeLog("Freshness: " + freshness.message, "info");
+
   // Tell the cache handler a chain is live: a reload from here on would re-run
   // the exploit against an already-patched kernel and panic the console.
   window.__exploitRunning = true;
@@ -344,6 +454,12 @@ run()
       // No chain ran. Leave __exploitDone false so the cache handler may still
       // reload once the pending update finishes; that reload is safe because
       // nothing was armed.
+      window.__exploitRunning = false;
+      return;
+    }
+    if (result === "freshness-abort") {
+      // Same contract: nothing was armed, so a later reload (or a relaunch
+      // after the user fixes the network) is safe.
       window.__exploitRunning = false;
       return;
     }
