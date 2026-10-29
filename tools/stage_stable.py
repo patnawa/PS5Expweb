@@ -20,6 +20,11 @@ def stage(destination):
     # Stable exploit host at /relapse/
     shutil.copytree(ROOT / "relapse-stable", destination / "relapse")
 
+    # Launcher at /app/: a small offline-cached page the shortcut client opens,
+    # with the jailbreak / clear-cache / diagnostics choices. Relative links
+    # only, so the same bytes work on Pages (/PS5Expweb/app/) and on serve.py.
+    shutil.copytree(ROOT / "relapse-stable" / "app", destination / "app")
+
     # GitHub Pages selects MIME by extension; use the conventional AppCache suffix.
     entry = destination / "relapse/index.html"
     html = entry.read_bytes()

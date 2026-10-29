@@ -5,6 +5,20 @@ Live diagnostic page: **https://patnawa.github.io/PS5Expweb/diagnostics/**
 [Download the diagnostic app](https://github.com/patnawa/PS5Expweb/releases/tag/v2026-10-29).
 See [app development notes](docs/diagnostic-app.md) for package details and local development.
 
+## The launcher app
+
+The recommended shortcut package (`PS5Expweb-Launcher.pkg`, from the
+[v2026-10-29 release](https://github.com/patnawa/PS5Expweb/releases/tag/v2026-10-29))
+opens `/app/`: a small offline-cached page with three choices — **JAILBREAK**
+(runs the chain and the payloads), **CLEAR CACHE** (deletes this console's
+cached exploit host — the one-click fix for a stale cache; only while idle)
+and **DIAGNOSTICS** — plus the host's current build so a stuck console is
+visible at a glance. The launcher caches itself under its own manifest, so it
+opens even when the exploit host's cache is the thing that is stuck.
+
+The single-purpose `PS5Expweb-Relapse-13.60-Stable-Art.pkg` still opens
+`/relapse/` directly and auto-runs.
+
 ## Host diagnostics
 
 Run `python serve.py` and open `http://<this-PC-LAN-IP>:8080/diagnostics/`.
@@ -95,7 +109,7 @@ fresh cache. A console stuck on stale code needs one of these:
 2. **New origin (local server).** Change the port or LAN IP
    (`python serve.py --port 8000`). A different origin starts with an empty
    cache; nothing stale can be served.
-3. **Reset page (host-served).** Open `/relapse/reset-cache/` while the exploit
+3. **Reset page (host-served).** *(Or the launcher app's CLEAR CACHE button, which navigates here.)* Open `/relapse/reset-cache/` while the exploit
    is idle. Its manifest is intentionally missing, so the browser deletes the
    origin's cache; then reopen `/relapse/` to re-cache from the network.
    The same URL works on Pages:

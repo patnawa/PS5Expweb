@@ -252,5 +252,29 @@ class DistributionTests(unittest.TestCase):
             self.assertIn(b'result === "freshness-abort"', site)
 
 
+    def test_staged_tree_ships_the_launcher(self):
+        # The shortcut client opens /app/: a small offline-cached launcher with
+        # the jailbreak, clear-cache and diagnostics choices. The staged tree
+        # must ship it; its cache manifest must be self-contained; and the
+        # links must be relative so the same bytes work on Pages (project-site
+        # subpath) and on serve.py (root path).
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary) / "pages"
+            stage_stable(output)
+            app = output / "app"
+            self.assertTrue((app / "index.html").is_file())
+            self.assertTrue((app / "launcher.appcache").is_file())
+            html = (app / "index.html").read_bytes()
+            manifest = (app / "launcher.appcache").read_bytes()
+            self.assertIn(b'manifest="launcher.appcache"', html)
+            self.assertIn(b"index.html", manifest)  # caches itself: opens offline
+            self.assertNotIn(b"relapse", manifest)  # self-contained: own cache group
+            self.assertIn(b'href="../relapse/"', html)
+            self.assertIn(b'href="../relapse/reset-cache/"', html)
+            self.assertIn(b'href="../diagnostics/"', html)
+            # Absolute /relapse/ links would break under the Pages subpath.
+            self.assertNotIn(b'href="/relapse/', html)
+
+
 if __name__ == "__main__":
     unittest.main()

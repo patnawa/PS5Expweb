@@ -6,6 +6,16 @@ overlays it onto the rebuilt shortcut automatically (dimensions are validated
 against the original package). Re-render the design with
 `python tools/design_artwork.py` and rebuild the package to pick up changes.
 
+Configs:
+
+- `config-launcher.json` — **recommended**. Title `PS5Expweb - Launcher`
+  (LCLH13600), opens `https://patnawa.github.io/PS5Expweb/app/`: the launcher
+  page with JAILBREAK / CLEAR CACHE / DIAGNOSTICS choices.
+- `config-relapse.json` — single-purpose exploit shortcut (LCLH13600), opens
+  `https://patnawa.github.io/PS5Expweb/relapse/` and auto-runs.
+- `config.json` — diagnostics only (LCLD13600), opens
+  `https://patnawa.github.io/PS5Expweb/diagnostics/`.
+
 Target: https://patnawa.github.io/PS5Expweb/diagnostics/
 
 [Download the diagnostic package](https://github.com/patnawa/PS5Expweb/releases/tag/v2026-10-29).

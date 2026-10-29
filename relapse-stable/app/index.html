@@ -1,0 +1,95 @@
+<!doctype html>
+<html manifest="launcher.appcache">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PS5Expweb Launcher</title>
+<style>
+  :root { --bg:#070b13; --card:#0d1524; --cyan:#22d3ee; --violet:#7c5cff;
+          --text:#eaf2ff; --muted:#9db4d6; --warn:#f9a8a8; }
+  * { box-sizing: border-box; }
+  body {
+    margin:0; min-height:100vh; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:14px;
+    background: radial-gradient(1200px 700px at 12% 8%, #0d3a4a 0%, transparent 60%),
+                radial-gradient(1100px 700px at 88% 92%, #2a1e5c 0%, transparent 55%),
+                var(--bg);
+    color:var(--text);
+    font:16px/1.5 "Sst", "Segoe UI", Arial, sans-serif;
+    padding:24px;
+  }
+  header { text-align:center; margin-bottom:10px; }
+  header h1 { font-size:22px; letter-spacing:4px; margin:0 0 4px; }
+  header .sub { color:var(--muted); font-size:12px; letter-spacing:2px; }
+  .menu { display:flex; flex-direction:column; gap:12px; width:100%; max-width:560px; }
+  a.choice {
+    display:block; padding:20px 22px; text-decoration:none; color:var(--text);
+    background:linear-gradient(135deg, #10203a 0%, #0d1524 60%, #1a1440 100%);
+    border:1px solid #233b5c; border-left:5px solid var(--cyan);
+    border-radius:12px;
+  }
+  a.choice:active { filter:brightness(1.5); }
+  a.choice .name { font-size:20px; font-weight:700; letter-spacing:1px; }
+  a.choice .hint { color:var(--muted); font-size:13px; margin-top:4px; }
+  a.choice.clear { border-left-color:var(--violet); }
+  a.choice.clear .name { color:var(--violet); }
+  #hostline {
+    width:100%; max-width:560px; text-align:center; color:var(--muted);
+    font:12px/1.5 "Consolas", "DejaVu Sans Mono", monospace;
+  }
+  #hostline b { color:var(--cyan); font-weight:normal; }
+  footer { color:var(--muted); font-size:11px; max-width:560px; text-align:center; }
+  footer .warn { color:var(--warn); }
+</style>
+</head>
+<body>
+<header>
+  <h1>PS5EXPWEB</h1>
+  <div class="sub">LAUNCHER &nbsp;&middot;&nbsp; 13.60</div>
+</header>
+
+<div class="menu">
+  <a class="choice" href="../relapse/">
+    <div class="name">JAILBREAK</div>
+    <div class="hint">Runs the kernel chain, then loads the payloads. Keep the network on.</div>
+  </a>
+  <a class="choice clear" href="../relapse/reset-cache/">
+    <div class="name">CLEAR CACHE</div>
+    <div class="hint">Deletes this console's cached exploit host. Only use while idle &mdash;
+      never during a run.</div>
+  </a>
+  <a class="choice" href="../diagnostics/">
+    <div class="name">DIAGNOSTICS</div>
+    <div class="hint">Checks that the host files arrive correctly. No exploit runs here.</div>
+  </a>
+</div>
+
+<div id="hostline">host build: checking&hellip;</div>
+
+<footer>
+  Keep the console connected: payloads load over the network. If a run keeps
+  failing, CLEAR CACHE, then relaunch JAILBREAK. <span class="warn">Never leave
+  this page during a chain that is already running.</span>
+</footer>
+
+<script>
+(function () {
+  var line = document.getElementById("hostline");
+  function say(html) { line.innerHTML = "host build: " + html; }
+  var url = "../relapse/cache.appcache?fresh=" + Date.now();
+  var xhr = new XMLHttpRequest();
+  xhr.open("GET", url, true);
+  try { xhr.timeout = 6000; } catch (e) {}
+  xhr.onload = function () {
+    var text = String(xhr.responseText || "");
+    var m = text.match(/^#\s*version\s+(.+?)\s*#\s*$/m);
+    say(m ? ("<b>" + m[1] + "</b> is on the host")
+          : "the host manifest has no readable version");
+  };
+  xhr.onerror = function () { say("unreachable &mdash; fix the connection, then relaunch"); };
+  xhr.ontimeout = xhr.onerror;
+  xhr.send();
+})();
+</script>
+</body>
+</html>

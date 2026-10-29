@@ -877,6 +877,24 @@ Recovery for the crashed console (stale 26n cache, network failing):
    retrying — retrying on a dirty heap is what turns a failed spray into a
    crash.
 
+### The launcher app — in-app clear cache (2026-10-29c)
+
+The stuck-stale console had no in-app way back to the reset page: the shortcut
+opens a fixed URL, the stale page ships no navigation, and the app may not
+appear where the user looks for it in Settings. The launcher fixes the flow at
+the app level: a new shortcut package (`config-launcher.json`, same title ID
+LCLH13600, replaces the Relapse-only shortcut) opens `/app/` — a small page
+cached under its OWN manifest (`launcher.appcache`, lists only itself), so it
+opens even while the exploit host's cache is the thing that is stuck. It
+offers JAILBREAK (→ `/relapse/`), CLEAR CACHE (→ `/relapse/reset-cache/`,
+safe only while idle) and DIAGNOSTICS, plus the host's current build fetched
+from the live manifest so a stuck console is visible at a glance.
+
+The pkg cannot run code — the "clear cache function" is the host page; the
+package change is only the URL. All links are relative, so the same staged
+bytes work on the Pages subpath and on serve.py
+(`tests/test_distribution.py::test_staged_tree_ships_the_launcher`).
+
 ### "Show me the controller and the status" — the screen rebuild (2026-10-26m)
 
 The old screen was a 420 KB `index.html`: a base64 JPEG backdrop on a fixed
