@@ -187,8 +187,11 @@ def render_icon0():
     d = ImageDraw.Draw(base)
     dot_grid(d, (0, 0, size, size), 16, WHITE, 6)
 
-    draw_chip_mark(base, size // 2, 232, 1.14)
-    badge(d, size // 2, 420, "13.60", scale=1.06)
+    # The chip sits high and the badge low so the pill's keyline clears the
+    # hexagon's bottom vertex (the 26n build let them touch), and the version
+    # text is large enough to read at home-screen tile size.
+    draw_chip_mark(base, size // 2, 210, 1.10)
+    badge(d, size // 2, 436, "13.60", scale=1.28)
     return base
 
 
@@ -217,12 +220,18 @@ def render_pic(variant):
     d = ImageDraw.Draw(base)
     dot_grid(d, (0, 0, w, h), 42, WHITE, 8)
 
-    # ghost hexagon watermark: visible, edge-lit, clear of the lockup
+    # ghost hexagon watermark: visible, edge-lit, clear of the lockup.
+    # Variant 0 sits it on the empty right side; variant 1 on the upper left,
+    # small enough and high enough that the (taller) mirrored text block
+    # cannot cross its faint stroke.
     wm = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     wd = ImageDraw.Draw(wm)
-    hx = w * (0.82 if variant == 0 else 0.18)
-    wd.polygon(hexagon_points(hx, h * 0.52, 700), outline=WHITE + (55,), width=10)
-    wd.polygon(hexagon_points(hx, h * 0.52, 350), outline=CYAN + (40,), width=6)
+    if variant == 0:
+        hx, hy, hr = w * 0.82, h * 0.52, 700
+    else:
+        hx, hy, hr = w * 0.14, h * 0.34, 480
+    wd.polygon(hexagon_points(hx, hy, hr), outline=WHITE + (92,), width=10)
+    wd.polygon(hexagon_points(hx, hy, hr * 0.5), outline=CYAN + (66,), width=6)
     base.alpha_composite(wm.filter(ImageFilter.GaussianBlur(2)))
     base.alpha_composite(wm.filter(ImageFilter.GaussianBlur(26)))
 
@@ -232,12 +241,21 @@ def render_pic(variant):
     font_foot = load_font(58, bold=False)
     probe = ImageDraw.Draw(Image.new("RGBA", (8, 8)))
     word = "RELAPSE"
-    sub = "PS5 EXPLOIT HOST   \\u00b7   HARDENED"
+    sub = "PS5 EXPLOIT HOST   \u00b7   HARDENED"
     foot = "PATNAWA.GITHUB.IO/PS5EXPWEB/RELAPSE"
     word_w = text_width(probe, word, font_big, 28)
+    sub_w = text_width(probe, sub, font_sub, 10)
+    bar_w = max(word_w, sub_w)  # the rule spans the wider of the two lines
 
     tile_x = 380 if variant == 0 else w - 380 - 720
-    tx = tile_x + 880
+    if variant == 0:
+        tx = tile_x + 880
+    else:
+        # Mirrored lockup: the tile sits on the right, so the text block goes
+        # to its LEFT, positioned by its right edge. The 26n art build placed
+        # the block at tile_x + 880 (tx=3620) and every line rendered past the
+        # 3840 canvas -- pic1 shipped with the title clipped to "R".
+        tx = tile_x - 90 - max(word_w, sub_w)
 
     # text block, top-down; the tile is sized to share its top/bottom edges
     y = 0
@@ -249,9 +267,9 @@ def render_pic(variant):
     top = (h - block_h) // 2
 
     letterspaced_text(d, (tx, top + word_top), word, font_big, WHITE + (255,), 28)
-    for i in range(int(word_w)):
+    for i in range(int(bar_w)):
         d.line((tx + i, top + bar_y, tx + i, top + bar_y + 14),
-               fill=lerp(CYAN, VIOLET, i / word_w) + (255,))
+               fill=lerp(CYAN, VIOLET, i / bar_w) + (255,))
     letterspaced_text(d, (tx, top + sub_y), sub, font_sub, MUTED + (255,), 10)
     badge(d, 0, top + pill_cy, "FW 13.60", scale=1.25, left=tx)
 
