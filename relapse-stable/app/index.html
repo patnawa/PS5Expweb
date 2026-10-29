@@ -89,6 +89,16 @@
   xhr.onerror = function () { say("unreachable &mdash; fix the connection, then relaunch"); };
   xhr.ontimeout = xhr.onerror;
   xhr.send();
+
+  // Forward tuning parameters (?numw=..&spray=..&churn=..&pre=..&numr=..&
+  // block=..&tmo=..) from this page's URL to the exploit host, so an arming
+  // retry can be run straight from the launcher.
+  var q = window.location.search;
+  if (q && q.length > 1) {
+    var jailbreak = document.querySelector("a.choice");
+    if (jailbreak)
+      jailbreak.setAttribute("href", jailbreak.getAttribute("href") + q);
+  }
 })();
 </script>
 </body>
